@@ -54,3 +54,9 @@ From the repository root, on Windows x64 with the Node version in `.nvmrc`, Visu
 The script installs locked dependencies, runs the extension compiler and tests, packages Code OSS, checks that the bundled extension and compiler standard library are present, and builds the unsigned user installer. Outputs are `.build/win32-x64/user-setup/*.exe` and `SHA256SUMS.txt`. It does not install the resulting application.
 
 The **Structural Tools Windows Installer** GitHub workflow performs the same build on `windows-2022` and uploads the installer and checksum artifacts. A successful workflow run is required to confirm an installer was produced; merely committing the workflow does not create one.
+
+## Advanced intentions
+
+Use the lightbulb or `Ctrl+.` on supported source shapes. The shared registry provides return-branch/ternary conversion, literal-array accumulation to `map`, a native Promise fulfillment-to-await conversion, local anonymous function-to-arrow conversion, repeated pure-expression extraction, Boolean comparison simplification, nullable receiver guards, return guard clauses, string templates, unchanged `let` to `const`, local object shorthand methods, and optional nullable returns. All actions use applicability checks, source snapshots, compiler validation, and the existing confirmation preview.
+
+These are deliberately bounded transformations. Loops require an adjacent fresh local array, literal numeric inputs, and a pure projection. Functions with lexical context or escaped references are refused. Comments inside rewritten nodes suppress intentions. Nullable guards intentionally skip the call when the receiver is absent. Unsupported shapes are omitted from the lightbulb rather than guessed.
