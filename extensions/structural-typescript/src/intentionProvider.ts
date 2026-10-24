@@ -24,6 +24,8 @@ const titles: Readonly<Record<string, () => string>> = {
 };
 
 export function registerIntentions(context: vscode.ExtensionContext, withProject: <T>(document: vscode.TextDocument, action: (project: Project) => T) => T, preview: (changes: readonly Change[]) => Promise<void>): void {
+	let cached: { key: string; expires: number; actions: vscode.CodeAction[] } | undefined;
+	context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(() => { cached = undefined; }));
 	context.subscriptions.push(vscode.commands.registerCommand('structural.applyIntention', async (uri: vscode.Uri, version: number, offset: number, id: string) => {
 		try {
 			const document = await vscode.workspace.openTextDocument(uri);
@@ -39,15 +41,23 @@ export function registerIntentions(context: vscode.ExtensionContext, withProject
 		} catch (error) { vscode.window.showErrorMessage(vscode.l10n.t('TypeScript Structure: {0}', error instanceof Error ? error.message : String(error))); }
 	}));
 	context.subscriptions.push(vscode.languages.registerCodeActionsProvider(['typescript', 'typescriptreact', 'javascript', 'javascriptreact'].map(language => ({ language, scheme: 'file' })), {
-		provideCodeActions(document, range, _context, token) {
+		provideCodeActions(document, range, actionContext, token) {
 			if (token.isCancellationRequested || !vscode.workspace.isTrusted) { return []; }
+			if (actionContext.only && !actionContext.only.contains(vscode.CodeActionKind.RefactorRewrite) && !vscode.CodeActionKind.RefactorRewrite.contains(actionContext.only)) { return []; }
+			const key = `${document.uri}:${document.version}:${document.offsetAt(range.start)}`;
+			if (cached?.key === key && cached.expires > Date.now()) { return cached.actions; }
 			try {
-				return withProject(document, project => intentionsAt(project, document.uri.fsPath, document.offsetAt(range.start)).map(intention => {
-					const action = new vscode.CodeAction(titles[intention.rule.id](), vscode.CodeActionKind.RefactorRewrite);
-					action.command = { command: 'structural.applyIntention', title: action.title, arguments: [document.uri, document.version, document.offsetAt(range.start), intention.rule.id] };
-					return action;
-				}));
-			} catch { return []; }
+				const actions = withProject(document, project => {
+					const intentions = intentionsAt(project, document.uri.fsPath, document.offsetAt(range.start));
+					return intentions.map(intention => {
+						const action = new vscode.CodeAction(titles[intention.rule.id](), vscode.CodeActionKind.RefactorRewrite);
+						action.command = { command: 'structural.applyIntention', title: action.title, arguments: [document.uri, document.version, document.offsetAt(range.start), intention.rule.id] };
+						return action;
+					});
+				});
+				cached = { key, expires: Date.now() + 1000, actions };
+				return actions;
+			} catch (error) { console.warn('Structural intention analysis failed', error); return []; }
 		}
 	}, { providedCodeActionKinds: [vscode.CodeActionKind.RefactorRewrite] }));
 }

@@ -2,7 +2,7 @@
 	"name": "structural-typescript",
 	"displayName": "%displayName%",
 	"description": "%description%",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"publisher": "vscode",
 	"license": "MIT",
 	"engines": {
@@ -119,6 +119,11 @@
 				"command": "structural.safeDeleteFile",
 				"title": "%safeDeleteFile%",
 				"category": "%category%"
+			},
+			{
+				"command": "structural.changeSignature",
+				"title": "%changeSignature%",
+				"category": "%category%"
 			}
 		],
 		"submenus": [
@@ -173,6 +178,9 @@
 				},
 				{
 					"command": "structural.safeDeleteFile"
+				},
+				{
+					"command": "structural.changeSignature"
 				}
 			],
 			"editor/context": [

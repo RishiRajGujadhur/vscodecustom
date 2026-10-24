@@ -1,6 +1,6 @@
 # TypeScript Structure Tools
 
-This built-in desktop extension adds four JetBrains-inspired feature areas to Code OSS. It uses a command-scoped TypeScript compiler project shared by the refactoring and analysis commands. Unsaved buffers participate in analysis. Commands operate in the active file's nearest `tsconfig.json` or `jsconfig.json`, rather than treating unrelated projects as one program.
+This desktop extension adds React extraction/structure, global refactorings and type dependencies, plus advanced intentions, function data flow, Safe Delete and Change Signature. It uses a command-scoped TypeScript compiler project shared by the refactoring and analysis commands. Unsaved buffers participate in analysis. Commands operate in the active file's nearest `tsconfig.json` or `jsconfig.json`, rather than treating unrelated projects as one program.
 
 ## Commands and views
 
@@ -72,3 +72,20 @@ The first CFG supports block-bodied functions, simple `let`/`const` bindings, as
 **Safe Delete Symbol** resolves a declaration and opens a usage/risk report before offering deletion edits. Known callers, inheritance/type usages, and other executable references block the operation. Unused imports can be cleaned up; module evaluation follows `verbatimModuleSyntax`, and type-only imports do not become runtime imports. Overload declarations are treated together. Import aliases are deleted as bindings, never by deleting the imported implementation. **Safe Delete File** checks static imports, re-exports, dynamic literal imports, require paths and triple-slash references.
 
 Dynamic/reflection matches, public members, exports and possible external consumers are explicitly uncertain. With no known blockers, the user may deliberately review an uncertain deletion; the extension never labels it proven safe. Initialization effects and unsupported declarations are blocked. No dependent business logic is automatically removed. The source graph is checked again after the report, and source snapshots protect edit/file previews. Approve related import and deletion edits together. Workspace consumers outside the active compiler project and computed runtime module paths cannot be fully ruled out.
+
+## Change Signature
+
+**Change Signature and Update Callers** provides a native parameter editor with add, remove, rename, move, type, optional/default and migration-expression controls. New required parameters need an explicit caller expression; no placeholder business value is invented. It updates resolved direct calls, compatible overload families, explicit constructors, and related interface/class methods. Parameter renames preserve shorthand keys. The editor also exposes the existing options-object conversion. Escape cancels before edits; Preview checks the source graph again and validates the compiler result.
+
+Compatible overloads must have the same parameter count and names; distinct original types are retained unless explicitly overridden. Rest/destructured parameters, constructor parameter properties, generators/arguments, indirect callbacks, optional calls, spreads, reflective/dynamic calls, and inconsistent signature families are refused. Removing a referenced parameter is refused. Argument reordering/removal is rejected when it could reorder or erase effects; reordering default parameters is also refused. JavaScript requires `checkJs`. External consumers outside this compiler project are not rewritten. Formatting outside changed spans is retained; comments inside a rewritten parameter list suppress the operation.
+
+## Standalone VSIX and integration validation
+
+From this repository with its extension and build dependencies installed:
+
+```powershell
+node scripts/package-structural-extension.mts
+node extensions/structural-typescript/test/run-integration.mts "path/to/Code - OSS.exe"
+```
+
+The first command bundles the compiler, standard library declarations and license notices into `.build/releases/structural-typescript-0.2.0.vsix`. Install through **Extensions → Install from VSIX** and reload the editor. This updates the extension without rebuilding the earlier Windows installer. The integration runner uses isolated temporary profile, extension and shared-data directories. It checks actual extension-host registration, lightbulb actions, the flow webview, blocked deletion and cancelled signature editing. Successful runs remove their temporary profile; failed runs retain it for diagnostics.

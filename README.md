@@ -4,6 +4,23 @@ A custom Code OSS build with JetBrains-inspired tools for React and TypeScript. 
 
 [Testing walkthrough](docs/structural-tools/README.md) · [Release notes](docs/structural-tools/RELEASE_NOTES.md) · [Extension reference](extensions/structural-typescript/README.md)
 
+## Smart Refactoring — 0.2.0
+
+The shared TypeScript/JavaScript engine now also provides the four features in the [smart refactoring walkthrough](docs/structural-tools/SMART_REFACTOR.md):
+
+| Feature | Try it |
+| --- | --- |
+| Advanced Intention Actions | Press `Ctrl+.` for 13 supported, validated transformations. |
+| Function Data Flow | Run **Analyze Function Control and Value Flow** for a navigable CFG with reaching assignments, liveness, possible constants/null states, and unassigned reads. |
+| Safe Delete | Run **Safe Delete Symbol** or **Safe Delete File** for blocking usages, removable imports, uncertainty reports, and guarded deletion previews. |
+| Change Signature | Run **Change Signature and Update Callers** to edit parameters and migrate supported callers, overloads, constructors, and interface implementations. |
+
+Use [smartRefactor.ts](docs/structural-tools/demo/smartRefactor.ts) to test these commands. Supported syntax is deliberately bounded; unsafe or ambiguous cases are refused. Build the standalone VSIX with `node scripts/package-structural-extension.mts`, then use **Install from VSIX**. The earlier Windows installer contains the 0.1.0 preview; install the 0.2.0 VSIX to test these additions.
+
+![Function flow with reaching values and liveness](docs/structural-tools/screenshots/smart-flow.png)
+
+![Signature migration and caller update preview](docs/structural-tools/screenshots/smart-signature-preview.png)
+
 ## Structural Tools Preview
 
 This fork adds four JetBrains-inspired feature areas to Code OSS: React extraction and rename previews, JSX structure and breadcrumbs, refactorings that update callers across files, and type/value dependency analysis. These are an initial TypeScript/JavaScript implementation with conservative safety checks. CSS/HTML text matches are optional search results; this is not a shared AST for every language.

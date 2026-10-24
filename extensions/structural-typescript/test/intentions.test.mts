@@ -46,7 +46,9 @@ const rejected: [string, string, string][] = [
 	['stringTemplate', 'function f(a:number,b:number){return a+b;}', 'a+b'],
 	['preferConst', 'function f(){let x=1;x++;return x;}', 'let'],
 	['objectMethod', 'function f(){const o={run:function(){return this;}};return o.run();}', 'run:function'],
-	['optionalAccess', 'function f(x:{name:string}|null){if(x!=null){return x.name;}return "fallback";}', 'if(x']
+	['optionalAccess', 'function f(x:{name:string}|null){if(x!=null){return x.name;}return "fallback";}', 'if(x'],
+	['functionToArrow', 'function f(){const g=function(){return 1;};eval("new g()");return g();}', 'function()'],
+	['objectMethod', 'function f(){const o={run:function(){return 1;}};eval("new o.run()");return o.run();}', 'run:function']
 ];
 for (const [id, code, cursor] of rejected) {
 	test(`intention ${id} refuses unsafe shape`, () => fixture({ 'a.ts': code }, (project, file) => {

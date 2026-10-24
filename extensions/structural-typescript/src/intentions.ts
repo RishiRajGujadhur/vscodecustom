@@ -41,6 +41,7 @@ function localDirectCalls(project: Project, name: ts.Identifier): boolean {
 	const symbol = resolvedSymbol(project, name);
 	let safe = true;
 	walk(name.getSourceFile(), child => {
+		if (ts.isIdentifier(child) && child.text === 'eval') { safe = false; }
 		if (ts.isIdentifier(child) && child !== name && resolvedSymbol(project, child) === symbol && (!ts.isCallExpression(child.parent) || child.parent.expression !== child)) { safe = false; }
 	});
 	return safe;
@@ -140,6 +141,7 @@ export const intentionRules: readonly IntentionRule[] = [
 		if (!ts.isVariableDeclarationList(object.parent) || !(object.parent.flags & ts.NodeFlags.Const) || !ts.isVariableStatement(object.parent.parent) || !ts.isBlock(object.parent.parent.parent)) { return; }
 		let safe = true;
 		walk(object.parent.parent.parent, child => {
+			if (ts.isIdentifier(child) && child.text === 'eval') { safe = false; }
 			if (ts.isIdentifier(child) && child !== object.name && resolvedSymbol(project, child) === resolvedSymbol(project, object.name)) {
 				if (!ts.isPropertyAccessExpression(child.parent) || child.parent.expression !== child || child.parent.name.text !== node.name.getText() || !ts.isCallExpression(child.parent.parent) || child.parent.parent.expression !== child.parent) { safe = false; }
 			}

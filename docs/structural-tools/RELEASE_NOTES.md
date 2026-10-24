@@ -23,3 +23,11 @@ The feature suite passed 22 tests. Installer path validation includes native Inn
 This is an initial preview, not full JetBrains feature parity. Refactorings reject unsupported or ambiguous syntax and require approval of related edits in Refactor Preview. Text matches outside TypeScript are heuristic. Analysis is bounded and static; it does not prove runtime value flow or that a public API is unused. See [supported scope](../../extensions/structural-typescript/README.md#supported-boundaries).
 
 The installer is unsigned. Its build and path probes do not establish that installation on every Windows configuration will succeed.
+
+# Smart Refactoring 0.2.0
+
+Adds 13 compiler-backed lightbulb intentions, a bounded intraprocedural CFG with reaching definitions/liveness/value facts, reference-aware Safe Delete, and a native Change Signature editor with supported caller migration. The tools share the existing compiler project and confirmation-preview infrastructure.
+
+The release includes a standalone VSIX build command, the [new testing guide and screenshots](SMART_REFACTOR.md), 90 passing compiler/regression tests, and real extension-host checks against both source and bundled builds. Unsupported control constructs and ambiguous transformations are refused. Dynamic/external deletion risks are reported as uncertain; outside-project signature consumers are not rewritten. See the guide for exact supported subsets.
+
+Install `structural-typescript-0.2.0.vsix` through **Install from VSIX** and reload to update an existing installation. The previously built Windows installer remains the 0.1.0 release.

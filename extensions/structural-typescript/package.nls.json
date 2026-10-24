@@ -1,6 +1,6 @@
 {
 	"displayName": "TypeScript Structure Tools",
-	"description": "Project-aware React extraction, structure, refactoring and type analysis.",
+	"description": "Compiler-backed intentions, data flow, Safe Delete, Change Signature, and React structure.",
 	"extractComponent": "Extract React Component",
 	"safeRename": "Rename with Text Reference Preview",
 	"reactStructure": "React Structure",
@@ -18,5 +18,6 @@
 	"functionFlow": "Analyze Function Control and Value Flow",
 	"valueOrigins": "Go to Reaching Value Origins",
 	"safeDelete": "Safe Delete Symbol",
-	"safeDeleteFile": "Safe Delete File"
+	"safeDeleteFile": "Safe Delete File",
+	"changeSignature": "Change Signature and Update Callers"
 }
