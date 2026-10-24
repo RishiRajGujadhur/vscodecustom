@@ -36,8 +36,7 @@
 			"explorer": [
 				{
 					"id": "structural.reactStructure",
-					"name": "%reactStructure%",
-					"when": "editorLangId == typescriptreact || editorLangId == javascriptreact"
+					"name": "%reactStructure%"
 				},
 				{
 					"id": "structural.analysis",
