@@ -13,6 +13,7 @@ import { RefactorError } from './errors';
 import { errorMessage } from './errorMessages';
 import { registerIntentions } from './intentionProvider';
 import { registerFunctionFlow } from './functionFlowView';
+import { registerSafeDelete } from './safeDeleteView';
 
 function captureChanges(project: Project, changes: readonly Change[]): readonly Change[] {
 	return changes.map(change => ({ ...change, documentText: change.documentText ?? project.program.getSourceFile(change.fileName)?.text }));
@@ -44,14 +45,21 @@ export function registerCommand(context: vscode.ExtensionContext, id: string, ac
 	}));
 }
 
-export async function preview(changes: readonly Change[]): Promise<void> {
+export async function preview(changes: readonly Change[], files: readonly { fileName: string; documentText: string }[] = []): Promise<void> {
 	const edit = await workspaceEdit(changes);
+	for (const file of files) {
+		const uri = vscode.Uri.file(file.fileName);
+		const document = await vscode.workspace.openTextDocument(uri);
+		if (document.getText() !== file.documentText) { throw new Error(vscode.l10n.t('A Source File Changed During Analysis. Run the Refactoring Again.')); }
+		edit.deleteFile(uri, { recursive: false }, { needsConfirmation: true, label: vscode.l10n.t('Review File Deletion') });
+	}
 	await vscode.workspace.applyEdit(edit, { isRefactoring: true });
 }
 
 export function activate(context: vscode.ExtensionContext): void {
 	registerIntentions(context, withProject, preview);
 	registerFunctionFlow(context, withProject, (id, action) => registerCommand(context, id, action));
+	registerSafeDelete(withProject, (id, action) => registerCommand(context, id, action), preview);
 	registerStructure(context);
 	registerAnalysis(context, withProject, (id, action) => registerCommand(context, id, action));
 	for (const [id, operation] of [

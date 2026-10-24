@@ -109,6 +109,16 @@
 				"title": "%valueOrigins%",
 				"command": "structural.valueOrigins",
 				"category": "%category%"
+			},
+			{
+				"command": "structural.safeDelete",
+				"title": "%safeDelete%",
+				"category": "%category%"
+			},
+			{
+				"command": "structural.safeDeleteFile",
+				"title": "%safeDeleteFile%",
+				"category": "%category%"
 			}
 		],
 		"submenus": [
@@ -157,6 +167,12 @@
 				},
 				{
 					"command": "structural.valueOrigins"
+				},
+				{
+					"command": "structural.safeDelete"
+				},
+				{
+					"command": "structural.safeDeleteFile"
 				}
 			],
 			"editor/context": [

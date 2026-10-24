@@ -16,5 +16,7 @@
 	"unused": "Analyze Project Types and Unused Declarations",
 	"category": "TypeScript Structure",
 	"functionFlow": "Analyze Function Control and Value Flow",
-	"valueOrigins": "Go to Reaching Value Origins"
+	"valueOrigins": "Go to Reaching Value Origins",
+	"safeDelete": "Safe Delete Symbol",
+	"safeDeleteFile": "Safe Delete File"
 }
