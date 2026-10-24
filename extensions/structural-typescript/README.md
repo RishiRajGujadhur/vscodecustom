@@ -1,0 +1,54 @@
+# TypeScript Structure Tools
+
+This built-in desktop extension adds four JetBrains-inspired feature areas to Code OSS. It uses a command-scoped TypeScript compiler project shared by the refactoring and analysis commands. Unsaved buffers participate in analysis. Commands operate in the active file's nearest `tsconfig.json` or `jsconfig.json`, rather than treating unrelated projects as one program.
+
+## Commands and views
+
+Open the Command Palette and search for **TypeScript Structure**. The commands also appear in the editor's **TypeScript Structure** context submenu.
+
+| Feature | Usage |
+| --- | --- |
+| Extract React Component | Select exactly one JSX element or fragment. Enter an uppercase component name. Review creation of the adjacent `.tsx`/`.jsx` file, captured props, imports and replacement JSX. TypeScript uses a generated props interface; JavaScript uses JSDoc rather than adding a PropTypes dependency. `use client` is preserved. |
+| Rename with Text Reference Preview | Place the cursor on a symbol. Choose semantic references, project strings/comments, or additional workspace text matches. The last option includes CSS, HTML, JSON, Markdown, Vue/Svelte and build-script text outside the compiler program. Text matches are heuristics and require review. |
+| React Structure | The Explorer view displays declarations, nested JSX, hooks, conditional expressions and `.map()` iterations. Click an entry to navigate. The React document-symbol provider also contributes an Outline source and breadcrumb ancestry. |
+| Extract Parameter Object and Update Callers | Place the cursor inside a named function with two or more required parameters. The edit creates an options interface, destructures parameters and rewrites statically resolved direct callers, including imported aliases. |
+| Inline Parameter Object and Update Callers | Converts a single destructured object parameter back to positional parameters. Callers must use object literals in parameter order so expression evaluation order remains intact. Removes a local options interface only when it has no other references. |
+| Pull Member Up / Push Member Down | Place the cursor on a class/interface member. Pull moves to a single explicit parent; push copies to every direct child before removing the source. Required imported dependencies are copied and relative module paths are rebased. |
+| Show Type Hierarchy | Use the native editor command on a class/interface to explore extends/implements relationships. |
+| Show Type Dependencies / Dependents | Shows inheritance plus referenced types, including union and intersection branches, in the **Type and Value Dependencies** Explorer view. |
+| Show Possible Value Flow from/to Here | Shows explicit assignments, property initialization, resolved call arguments and named-function returns. The tree describes possible static dependencies, not runtime execution. |
+| Analyze Project Types and Unused Declarations | Publishes compiler unused-declaration diagnostics, possible unread internal interface fields, and statically constant primitive `typeof` comparisons to Problems. Public fields and recognized dynamic accesses are excluded from unread-field hints. |
+
+All refactorings open Code OSS's editable refactoring preview, with per-edit confirmation metadata. Canceling the preview leaves files untouched; an accepted workspace edit participates in editor undo. New component files cannot overwrite existing files. Compiler validation rejects edits introducing new TypeScript errors. Source snapshots are checked before edits are prepared for the editor.
+
+## Supported boundaries
+
+This is an initial implementation, not full JetBrains parity. TypeScript/JavaScript use one compiler program; CSS, HTML and other workspace text do not share that AST. Renaming those files is explicitly opt-in textual matching. Project references are not automatically merged, and computed dynamic imports/CommonJS bridges are limited by TypeScript's module resolution and project settings.
+
+Extraction conservatively refuses mutations, context-dependent expressions, hook calls inside the selection, reserved captured `key`/`ref` names, and root keys/spreads that could change React reconciliation. Unavailable local types or other generated compiler errors also stop extraction. It copies source imports; unused imports can subsequently be removed with Organize Imports. It does not relocate CSS rules or assets.
+
+Parameter conversion rejects overloads, generics, default/optional/rest parameters, `arguments`, indirect function references, ambiguous callers and overlapping nested transformations. Member movement rejects generic containers, private/override/super-dependent members, decorators and initialized class fields. Dependencies that cannot be imported or moved safely are reported by compiler validation. Preview remains necessary: type checking cannot prove runtime equivalence.
+
+Analysis trees are bounded to eight levels and 500 nodes, with cycles/limits marked `…`, and are snapshots cleared when source buffers change. Run the command again to refresh them. Static value flow does not model heap aliasing, scheduling, arbitrary callbacks, reflection, or arbitrary runtime values. Unread-field and redundant-guard hints are evidence for review, not proofs that code can be deleted. Workspace text search is limited to 5,000 files and 2 MiB per file; exceeding either limit stops rather than silently producing partial changes.
+
+## Validation
+
+After installing this extension's dependencies:
+
+```powershell
+npm --prefix extensions/structural-typescript test
+```
+
+The source checkout uses `out/extension.js`; the repository packaging pipeline bundles to `dist/extension.js`, copies TypeScript's standard library declarations, and rewrites the manifest entry point. The extension is included in the normal built-in extension installation and compilation lists.
+
+## Windows installer
+
+From the repository root, on Windows x64 with the Node version in `.nvmrc`, Visual Studio's **Desktop development with C++** workload, and a Windows SDK installed:
+
+```powershell
+./scripts/build-structural-installer.ps1
+```
+
+The script installs locked dependencies, runs the extension compiler and tests, packages Code OSS, checks that the bundled extension and compiler standard library are present, and builds the unsigned user installer. Outputs are `.build/win32-x64/user-setup/*.exe` and `SHA256SUMS.txt`. It does not install the resulting application.
+
+The **Structural Tools Windows Installer** GitHub workflow performs the same build on `windows-2022` and uploads the installer and checksum artifacts. A successful workflow run is required to confirm an installer was produced; merely committing the workflow does not create one.

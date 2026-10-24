@@ -19,8 +19,7 @@ try {
 	$env:PATH = "$(Join-Path $sdk.FullName 'x64');$env:PATH"
 	Invoke-Checked { node build/npm/preinstall.ts }
 	Invoke-Checked { npm ci }
-	Invoke-Checked { node extensions/structural-typescript/node_modules/typescript/bin/tsc -p extensions/structural-typescript }
-	Invoke-Checked { node --test extensions/structural-typescript/test/*.test.cjs }
+	Invoke-Checked { npm --prefix extensions/structural-typescript test }
 	Invoke-Checked { npm run gulp vscode-win32-x64-min }
 	$extensionPath = Join-Path (Split-Path (Get-Location) -Parent) 'VSCode-win32-x64/resources/app/extensions/structural-typescript'
 	if (!(Test-Path (Join-Path $extensionPath 'dist/extension.js'))) { throw 'Packaged application is missing the structural extension.' }

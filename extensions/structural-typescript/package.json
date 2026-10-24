@@ -5,29 +5,152 @@
 	"version": "0.1.0",
 	"publisher": "vscode",
 	"license": "MIT",
-	"engines": { "vscode": "^1.100.0" },
+	"engines": {
+		"vscode": "^1.100.0"
+	},
 	"main": "./out/extension.js",
-	"activationEvents": ["onLanguage:typescript", "onLanguage:typescriptreact", "onLanguage:javascript", "onLanguage:javascriptreact"],
-	"capabilities": { "untrustedWorkspaces": { "supported": false }, "virtualWorkspaces": false },
-	"dependencies": { "typescript": "5.9.3" },
-	"devDependencies": { "@types/node": "24.x" },
-	"scripts": { "check": "tsc -p . --noEmit", "test": "node --test test/*.test.cjs" },
+	"activationEvents": [
+		"onLanguage:typescript",
+		"onLanguage:typescriptreact",
+		"onLanguage:javascript",
+		"onLanguage:javascriptreact"
+	],
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": false
+		},
+		"virtualWorkspaces": false
+	},
+	"dependencies": {
+		"typescript": "5.9.3"
+	},
+	"devDependencies": {
+		"@types/node": "24.x"
+	},
+	"scripts": {
+		"check": "tsc -p . --noEmit",
+		"test": "tsc -p . && tsc -p test && node --test test/*.test.mts"
+	},
 	"contributes": {
-		"views": { "explorer": [
-			{ "id": "structural.reactStructure", "name": "%reactStructure%", "when": "editorLangId == typescriptreact || editorLangId == javascriptreact" },
-			{ "id": "structural.analysis", "name": "%analysis%" }
-		] },
+		"views": {
+			"explorer": [
+				{
+					"id": "structural.reactStructure",
+					"name": "%reactStructure%",
+					"when": "editorLangId == typescriptreact || editorLangId == javascriptreact"
+				},
+				{
+					"id": "structural.analysis",
+					"name": "%analysis%"
+				}
+			]
+		},
 		"commands": [
-			{ "command": "structural.typeDependencies", "title": "%typeDependencies%", "category": "TypeScript Structure" },
-			{ "command": "structural.typeDependents", "title": "%typeDependents%", "category": "TypeScript Structure" },
-			{ "command": "structural.flowFrom", "title": "%flowFrom%", "category": "TypeScript Structure" },
-			{ "command": "structural.flowTo", "title": "%flowTo%", "category": "TypeScript Structure" },
-			{ "command": "structural.unused", "title": "%unused%", "category": "TypeScript Structure" },
-			{ "command": "structural.parameterObject", "title": "%parameterObject%", "category": "TypeScript Structure" },
-			{ "command": "structural.pullMemberUp", "title": "%pullMemberUp%", "category": "TypeScript Structure" },
-			{ "command": "structural.pushMemberDown", "title": "%pushMemberDown%", "category": "TypeScript Structure" },
-			{ "command": "structural.extractComponent", "title": "%extractComponent%", "category": "TypeScript Structure" },
-			{ "command": "structural.safeRename", "title": "%safeRename%", "category": "TypeScript Structure" }
-		]
+			{
+				"command": "structural.typeDependencies",
+				"title": "%typeDependencies%",
+				"category": "%category%"
+			},
+			{
+				"command": "structural.typeDependents",
+				"title": "%typeDependents%",
+				"category": "%category%"
+			},
+			{
+				"command": "structural.flowFrom",
+				"title": "%flowFrom%",
+				"category": "%category%"
+			},
+			{
+				"command": "structural.flowTo",
+				"title": "%flowTo%",
+				"category": "%category%"
+			},
+			{
+				"command": "structural.unused",
+				"title": "%unused%",
+				"category": "%category%"
+			},
+			{
+				"command": "structural.parameterObject",
+				"title": "%parameterObject%",
+				"category": "%category%"
+			},
+			{
+				"command": "structural.inlineParameterObject",
+				"title": "%inlineParameterObject%",
+				"category": "%category%"
+			},
+			{
+				"command": "structural.pullMemberUp",
+				"title": "%pullMemberUp%",
+				"category": "%category%"
+			},
+			{
+				"command": "structural.pushMemberDown",
+				"title": "%pushMemberDown%",
+				"category": "%category%"
+			},
+			{
+				"command": "structural.extractComponent",
+				"title": "%extractComponent%",
+				"category": "%category%"
+			},
+			{
+				"command": "structural.safeRename",
+				"title": "%safeRename%",
+				"category": "%category%"
+			}
+		],
+		"submenus": [
+			{
+				"label": "%category%",
+				"id": "structural.tools"
+			}
+		],
+		"menus": {
+			"structural.tools": [
+				{
+					"command": "structural.typeDependencies"
+				},
+				{
+					"command": "structural.typeDependents"
+				},
+				{
+					"command": "structural.flowFrom"
+				},
+				{
+					"command": "structural.flowTo"
+				},
+				{
+					"command": "structural.unused"
+				},
+				{
+					"command": "structural.parameterObject"
+				},
+				{
+					"command": "structural.inlineParameterObject"
+				},
+				{
+					"command": "structural.pullMemberUp"
+				},
+				{
+					"command": "structural.pushMemberDown"
+				},
+				{
+					"command": "structural.extractComponent"
+				},
+				{
+					"command": "structural.safeRename"
+				}
+			],
+			"editor/context": [
+				{
+					"group": "1_modification@6",
+					"submenu": "structural.tools",
+					"when": "resourceScheme == file && editorLangId =~ /^(typescript|typescriptreact|javascript|javascriptreact)$/"
+				}
+			]
+		}
 	}
 }

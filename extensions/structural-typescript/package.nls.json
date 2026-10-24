@@ -5,6 +5,7 @@
 	"safeRename": "Rename with Text Reference Preview",
 	"reactStructure": "React Structure",
 	"parameterObject": "Extract Parameter Object and Update Callers",
+	"inlineParameterObject": "Inline Parameter Object and Update Callers",
 	"pullMemberUp": "Pull Member Up",
 	"pushMemberDown": "Push Member Down",
 	"analysis": "Type and Value Dependencies",
@@ -12,5 +13,6 @@
 	"typeDependents": "Show Type Dependents",
 	"flowFrom": "Show Possible Value Flow from Here",
 	"flowTo": "Show Possible Value Flow to Here",
-	"unused": "Analyze Unused Project Declarations"
+	"unused": "Analyze Project Types and Unused Declarations",
+	"category": "TypeScript Structure"
 }

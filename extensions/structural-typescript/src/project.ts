@@ -4,17 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 import * as ts from 'typescript';
 import * as path from 'node:path';
+import { RefactorError } from './errors';
 
 /** A command-scoped compiler project, including unsaved editor buffers. */
 export class Project {
 	readonly service: ts.LanguageService;
 	readonly program: ts.Program;
 	readonly checker: ts.TypeChecker;
+	readonly directory: string;
 
 	constructor(fileName: string, buffers: ReadonlyMap<string, string>) {
 		const config = ts.findConfigFile(ts.sys.getCurrentDirectory(), ts.sys.fileExists);
 		const nearest = ts.findConfigFile(path.dirname(fileName), ts.sys.fileExists, 'tsconfig.json')
 			?? ts.findConfigFile(path.dirname(fileName), ts.sys.fileExists, 'jsconfig.json') ?? config;
+		this.directory = nearest ? path.dirname(nearest) : path.dirname(fileName);
 		let options: ts.CompilerOptions = { allowJs: true, checkJs: true, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext };
 		let files = [fileName];
 		if (nearest) {
@@ -31,7 +34,7 @@ export class Project {
 			getScriptFileNames: () => files,
 			getScriptVersion: () => '0',
 			getScriptSnapshot: name => { const text = readFile(name); return text === undefined ? undefined : ts.ScriptSnapshot.fromString(text); },
-			getCurrentDirectory: () => nearest ? path.dirname(nearest) : path.dirname(fileName),
+			getCurrentDirectory: () => this.directory,
 			getCompilationSettings: () => options,
 			getDefaultLibFileName: opts => ts.getDefaultLibFilePath(opts),
 			fileExists: name => content.has(normalize(name)) || ts.sys.fileExists(name),
@@ -43,6 +46,10 @@ export class Project {
 		};
 		this.service = ts.createLanguageService(host);
 		this.program = this.service.getProgram()!;
+		if (!this.program.getSourceFile(fileName)) {
+			this.service.dispose();
+			throw new RefactorError('missingProject');
+		}
 		this.checker = this.program.getTypeChecker();
 	}
 
@@ -61,6 +68,13 @@ export function nodeAt(source: ts.SourceFile, offset: number): ts.Node {
 export function walk(node: ts.Node, visit: (node: ts.Node) => void): void {
 	visit(node);
 	node.forEachChild(child => walk(child, visit));
+}
+
+export function resolvedSymbol(project: Project, node: ts.Node): ts.Symbol | undefined {
+	const symbol = ts.isIdentifier(node) && ts.isShorthandPropertyAssignment(node.parent)
+		? project.checker.getShorthandAssignmentValueSymbol(node.parent)
+		: project.checker.getSymbolAtLocation(node);
+	return symbol && symbol.flags & ts.SymbolFlags.Alias ? project.checker.getAliasedSymbol(symbol) : symbol;
 }
 
 /** Excludes declaration names, member names, JSX attributes and intrinsic tags. */
