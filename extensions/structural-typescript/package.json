@@ -1,0 +1,21 @@
+{
+	"name": "structural-typescript",
+	"displayName": "%displayName%",
+	"description": "%description%",
+	"version": "0.1.0",
+	"publisher": "vscode",
+	"license": "MIT",
+	"engines": { "vscode": "^1.100.0" },
+	"main": "./out/extension.js",
+	"activationEvents": ["onLanguage:typescript", "onLanguage:typescriptreact", "onLanguage:javascript", "onLanguage:javascriptreact"],
+	"capabilities": { "untrustedWorkspaces": { "supported": false }, "virtualWorkspaces": false },
+	"dependencies": { "typescript": "5.9.3" },
+	"devDependencies": { "@types/node": "24.x" },
+	"scripts": { "check": "tsc -p . --noEmit", "test": "node --test test/*.test.cjs" },
+	"contributes": {
+		"commands": [
+			{ "command": "structural.extractComponent", "title": "%extractComponent%", "category": "TypeScript Structure" },
+			{ "command": "structural.safeRename", "title": "%safeRename%", "category": "TypeScript Structure" }
+		]
+	}
+}

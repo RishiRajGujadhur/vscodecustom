@@ -1,0 +1,9 @@
+src/**
+test/**
+tsconfig*.json
+out/**
+esbuild*.mts
+package-lock.json
+node_modules/**
+!node_modules/typescript/lib/lib*.d.ts
+!node_modules/typescript/package.json

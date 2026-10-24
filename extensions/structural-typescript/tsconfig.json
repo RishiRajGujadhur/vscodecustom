@@ -1,0 +1,5 @@
+{
+	"extends": "../tsconfig.base.json",
+	"compilerOptions": { "rootDir": "./src", "outDir": "./out", "typeRoots": ["./node_modules/@types"], "ignoreDeprecations": "5.0" },
+	"include": ["src/**/*.ts", "../../src/vscode-dts/vscode.d.ts"]
+}

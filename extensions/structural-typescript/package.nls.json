@@ -1,0 +1,6 @@
+{
+	"displayName": "TypeScript Structure Tools",
+	"description": "Project-aware React extraction, structure, refactoring and type analysis.",
+	"extractComponent": "Extract React Component",
+	"safeRename": "Rename with Text Reference Preview"
+}
