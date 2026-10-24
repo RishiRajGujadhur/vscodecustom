@@ -181,8 +181,12 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 		});
 	}).then(() => {
 		// After esbuild completes, collect all files using vsce
-		return vsce.listFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.None });
+		// Copilot externalizes its SDK; collect production dependencies before applying .vscodeignore.
+		return vsce.listFiles({ cwd: extensionPath, packageManager: extensionName === 'copilot' ? vsce.PackageManager.Npm : vsce.PackageManager.None });
 	}).then(fileNames => {
+		if (extensionName === 'copilot' && !fileNames.includes('node_modules/@github/copilot/sdk/index.js')) {
+			throw new Error('The built-in Copilot extension is missing its external SDK entry point.');
+		}
 		if (packagedDependencies.length > 0) {
 			const packagedDependencyFileNames = packagedDependencies.flatMap(dependency =>
 				glob.sync(path.join(extensionPath, 'node_modules', dependency, '**'), { nodir: true, dot: true })
