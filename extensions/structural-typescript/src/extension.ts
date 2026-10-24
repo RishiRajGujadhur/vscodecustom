@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import * as ts from 'typescript';
 import { Project } from './project';
 import { Change, extractComponent, rename } from './refactor';
+import { registerStructure } from './structureView';
 
 export function withProject<T>(document: vscode.TextDocument, action: (project: Project) => T): T {
 	const project = new Project(document.uri.fsPath, new Map(vscode.workspace.textDocuments.filter(doc => doc.uri.scheme === 'file').map(doc => [doc.uri.fsPath, doc.getText()])));
@@ -36,6 +37,7 @@ export async function preview(changes: readonly Change[]): Promise<void> {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+	registerStructure(context);
 	registerCommand(context, 'structural.safeRename', async editor => {
 		const name = await vscode.window.showInputBox({ prompt: vscode.l10n.t('New Symbol Name') });
 		if (!name) { return; }
