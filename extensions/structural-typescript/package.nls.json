@@ -3,5 +3,8 @@
 	"description": "Project-aware React extraction, structure, refactoring and type analysis.",
 	"extractComponent": "Extract React Component",
 	"safeRename": "Rename with Text Reference Preview",
-	"reactStructure": "React Structure"
+	"reactStructure": "React Structure",
+	"parameterObject": "Extract Parameter Object and Update Callers",
+	"pullMemberUp": "Pull Member Up",
+	"pushMemberDown": "Push Member Down"
 }

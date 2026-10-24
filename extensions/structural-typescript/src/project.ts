@@ -24,7 +24,7 @@ export class Project {
 			options = parsed.options;
 			files = [...new Set([...parsed.fileNames, fileName])];
 		}
-		const normalize = (name: string) => ts.sys.useCaseSensitiveFileNames ? name : name.toLowerCase();
+		const normalize = (name: string) => ts.sys.useCaseSensitiveFileNames ? name.replace(/\\/g, '/') : name.replace(/\\/g, '/').toLowerCase();
 		const content = new Map([...buffers].map(([name, value]) => [normalize(name), value]));
 		const readFile = (name: string) => content.get(normalize(name)) ?? ts.sys.readFile(name);
 		const host: ts.LanguageServiceHost = {

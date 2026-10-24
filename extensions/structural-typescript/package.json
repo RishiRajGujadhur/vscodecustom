@@ -15,6 +15,9 @@
 	"contributes": {
 		"views": { "explorer": [{ "id": "structural.reactStructure", "name": "%reactStructure%", "when": "editorLangId == typescriptreact || editorLangId == javascriptreact" }] },
 		"commands": [
+			{ "command": "structural.parameterObject", "title": "%parameterObject%", "category": "TypeScript Structure" },
+			{ "command": "structural.pullMemberUp", "title": "%pullMemberUp%", "category": "TypeScript Structure" },
+			{ "command": "structural.pushMemberDown", "title": "%pushMemberDown%", "category": "TypeScript Structure" },
 			{ "command": "structural.extractComponent", "title": "%extractComponent%", "category": "TypeScript Structure" },
 			{ "command": "structural.safeRename", "title": "%safeRename%", "category": "TypeScript Structure" }
 		]
