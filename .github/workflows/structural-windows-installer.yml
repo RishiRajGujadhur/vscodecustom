@@ -1,0 +1,41 @@
+name: Structural Tools Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/structural-typescript-tools]
+    paths: [.github/workflows/structural-windows-installer.yml, scripts/build-structural-installer.ps1]
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    runs-on: windows-2022
+    timeout-minutes: 120
+    env:
+      VSCODE_ARCH: x64
+      npm_config_arch: x64
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Build and Verify Installer
+        shell: pwsh
+        run: ./scripts/build-structural-installer.ps1
+      - name: Upload Windows User Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-oss-structural-win32-x64-setup
+          path: .build/win32-x64/user-setup/*.exe
+          if-no-files-found: error
+      - name: Upload Checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-oss-structural-checksums
+          path: .build/win32-x64/user-setup/SHA256SUMS.txt
+          if-no-files-found: error
