@@ -14,6 +14,7 @@ import product from '../product.json' with { type: 'json' };
 import { getVersion } from './lib/getVersion.ts';
 import * as task from './lib/gulp/task.ts';
 import * as util from './lib/util.ts';
+import { assertWindowsInstallerPaths } from './lib/win32InstallerPaths.ts';
 
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
@@ -69,6 +70,10 @@ function buildWin32Setup(arch: string, target: string): task.CallbackTask {
 
 		const sourcePath = buildPath(arch);
 		const outputPath = setupDir(arch, target);
+		const installDirectory = target === 'user'
+			? path.win32.join(process.env['LOCALAPPDATA'] || 'C:\\Users\\Default\\AppData\\Local', 'Programs', product.win32DirName)
+			: path.win32.join(process.env['ProgramFiles'] || 'C:\\Program Files', product.win32DirName);
+		assertWindowsInstallerPaths(sourcePath, installDirectory);
 		fs.mkdirSync(outputPath, { recursive: true });
 
 		const quality = (product as typeof product & { quality?: string }).quality || 'dev';
