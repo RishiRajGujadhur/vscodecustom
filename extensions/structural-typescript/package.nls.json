@@ -6,5 +6,11 @@
 	"reactStructure": "React Structure",
 	"parameterObject": "Extract Parameter Object and Update Callers",
 	"pullMemberUp": "Pull Member Up",
-	"pushMemberDown": "Push Member Down"
+	"pushMemberDown": "Push Member Down",
+	"analysis": "Type and Value Dependencies",
+	"typeDependencies": "Show Type Dependencies",
+	"typeDependents": "Show Type Dependents",
+	"flowFrom": "Show Possible Value Flow from Here",
+	"flowTo": "Show Possible Value Flow to Here",
+	"unused": "Analyze Unused Project Declarations"
 }

@@ -13,8 +13,16 @@
 	"devDependencies": { "@types/node": "24.x" },
 	"scripts": { "check": "tsc -p . --noEmit", "test": "node --test test/*.test.cjs" },
 	"contributes": {
-		"views": { "explorer": [{ "id": "structural.reactStructure", "name": "%reactStructure%", "when": "editorLangId == typescriptreact || editorLangId == javascriptreact" }] },
+		"views": { "explorer": [
+			{ "id": "structural.reactStructure", "name": "%reactStructure%", "when": "editorLangId == typescriptreact || editorLangId == javascriptreact" },
+			{ "id": "structural.analysis", "name": "%analysis%" }
+		] },
 		"commands": [
+			{ "command": "structural.typeDependencies", "title": "%typeDependencies%", "category": "TypeScript Structure" },
+			{ "command": "structural.typeDependents", "title": "%typeDependents%", "category": "TypeScript Structure" },
+			{ "command": "structural.flowFrom", "title": "%flowFrom%", "category": "TypeScript Structure" },
+			{ "command": "structural.flowTo", "title": "%flowTo%", "category": "TypeScript Structure" },
+			{ "command": "structural.unused", "title": "%unused%", "category": "TypeScript Structure" },
 			{ "command": "structural.parameterObject", "title": "%parameterObject%", "category": "TypeScript Structure" },
 			{ "command": "structural.pullMemberUp", "title": "%pullMemberUp%", "category": "TypeScript Structure" },
 			{ "command": "structural.pushMemberDown", "title": "%pushMemberDown%", "category": "TypeScript Structure" },

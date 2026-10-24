@@ -8,6 +8,7 @@ import { Project } from './project';
 import { Change, extractComponent, rename } from './refactor';
 import { registerStructure } from './structureView';
 import { moveMember, parameterObject, validateChanges } from './globalRefactor';
+import { registerAnalysis } from './analysisView';
 
 export function withProject<T>(document: vscode.TextDocument, action: (project: Project) => T): T {
 	const project = new Project(document.uri.fsPath, new Map(vscode.workspace.textDocuments.filter(doc => doc.uri.scheme === 'file').map(doc => [doc.uri.fsPath, doc.getText()])));
@@ -39,6 +40,7 @@ export async function preview(changes: readonly Change[]): Promise<void> {
 
 export function activate(context: vscode.ExtensionContext): void {
 	registerStructure(context);
+	registerAnalysis(context, withProject, (id, action) => registerCommand(context, id, action));
 	for (const [id, operation] of [
 		['structural.parameterObject', (project: Project, file: string, offset: number) => parameterObject(project, file, offset)],
 		['structural.pullMemberUp', (project: Project, file: string, offset: number) => moveMember(project, file, offset, 'up')],
