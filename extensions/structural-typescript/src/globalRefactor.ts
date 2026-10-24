@@ -149,9 +149,9 @@ export function moveMember(project: Project, fileName: string, offset: number, d
 	const source = project.program.getSourceFile(fileName)!;
 	let node = nodeAt(source, offset);
 	while (node.parent && !container(node.parent)) { node = node.parent; }
-	if (!node.parent || !container(node.parent) || !('name' in node) || !node.name) { throw new RefactorError('invalidMember'); }
+	if (!node.parent || !container(node.parent) || !(ts.isPropertyDeclaration(node) || ts.isMethodDeclaration(node) || ts.isPropertySignature(node) || ts.isMethodSignature(node) || ts.isGetAccessorDeclaration(node) || ts.isSetAccessorDeclaration(node)) || !node.name) { throw new RefactorError('invalidMember'); }
 	const owner = node.parent;
-	const member = node as Member;
+	const member = node;
 	if (owner.typeParameters?.length || ts.isConstructorDeclaration(member) || ts.isIndexSignatureDeclaration(member)) { throw new RefactorError('genericMember'); }
 	if (ts.isPropertyDeclaration(member) && member.initializer || ts.canHaveDecorators(member) && ts.getDecorators(member)?.length) { throw new RefactorError('unsafeMember'); }
 	let unsafe = false;

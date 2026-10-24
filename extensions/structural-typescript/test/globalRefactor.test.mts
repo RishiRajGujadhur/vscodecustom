@@ -8,7 +8,7 @@ import { fixture } from './fixtures.mts';
 import { inlineParameterObject, parameterObject, moveMember, validateChanges } from '../out/globalRefactor.js';
 
 test('parameter object updates callers across import aliases and validates the project', () => {
-	fixture({ 'model.ts': 'export function sum(a: number, b: number) { return a + b; }', 'use.ts': "import { sum as add } from './model'; export const total = add(1, 2);" }, (project, file) => {
+	fixture({ 'model.ts': 'export function sum(a: number, b: number) { return a + b; }', 'use.ts': `import { sum as add } from './model'; export const total = add(1, 2);` }, (project, file) => {
 		const changes = parameterObject(project, file, 18);
 		assert.deepEqual(changes.map(change => change.text), ['{ a, b }: sumOptions', 'interface sumOptions { a: number; b: number; }\n', '{ a: 1, b: 2 }']);
 		validateChanges(project, changes);

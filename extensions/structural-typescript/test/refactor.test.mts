@@ -14,7 +14,7 @@ test('extracts closure values, preserves client directive and imports', () => {
 	fixture({ 'app.tsx': source }, (project, file) => {
 		const jsx = '<Widget title={title} />';
 		const result = extractComponent(project, file, source.indexOf(jsx), source.indexOf(jsx) + jsx.length, 'Header');
-		assert.deepEqual({ props: result.content.includes('title: string;'), directive: result.content.startsWith("'use client';"), replacement: result.changes[0].text }, { props: true, directive: true, replacement: '<Header title={title} />' });
+		assert.deepEqual({ props: result.content.includes('title: string;'), directive: result.content.startsWith(`'use client';`), replacement: result.changes[0].text }, { props: true, directive: true, replacement: '<Header title={title} />' });
 	});
 });
 
@@ -27,7 +27,7 @@ test('refuses mutation and partial selections', () => {
 });
 
 test('renames cross-file symbols while leaving unrelated identifiers intact', () => {
-	fixture({ 'model.ts': 'export const value = 1;', 'use.ts': "import { value } from './model'; console.log(value); const other = { value: 2 };" }, (project, file) => {
+	fixture({ 'model.ts': 'export const value = 1;', 'use.ts': `import { value } from './model'; console.log(value); const other = { value: 2 };` }, (project, file) => {
 		const changes = rename(project, file, 14, 'renamed', false);
 		assert.deepEqual(changes.map(change => path.basename(change.fileName)).sort(), ['model.ts', 'use.ts', 'use.ts']);
 	});
