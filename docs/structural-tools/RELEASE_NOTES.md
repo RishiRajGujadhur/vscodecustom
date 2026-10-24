@@ -1,0 +1,25 @@
+# Structural Tools Preview — Code OSS 1.144.0
+
+Windows x64 user installation, with TypeScript Structure Tools 0.1.0 built in.
+
+## Added
+
+- **React component extraction:** move one selected JSX element or fragment into an adjacent component, infer captured props, generate a TypeScript interface or JavaScript JSDoc, update the source import and JSX, and preserve `use client`.
+- **Rename previews:** review TypeScript symbol references, optional string/comment references, and optional workspace text matches in other supported file types.
+- **React Structure and breadcrumbs:** navigate hooks, nested JSX, conditional branches, and `.map()` loops from Explorer and document-symbol ancestry.
+- **Global refactorings:** extract or inline parameter objects with direct caller updates, plus supported member moves through explicit inheritance relationships.
+- **Type and value analysis:** explore dependencies and dependents, possible static value flow, native type hierarchies, and project analysis hints in Problems.
+- **Testing guide:** real application screenshots and a dependency-free editing fixture in the [walkthrough](README.md).
+
+## Fixed
+
+- Removed duplicate, unfiltered packaged dependencies that caused installer `MoveFile failed; code 3` failures under the default user installation path. Added path-length checks with temporary rename headroom.
+- Kept React Structure available in Explorer when editor focus or language changes. The tree is empty for files without supported JSX structure.
+
+## Validation and limits
+
+The feature suite passed 22 tests. Installer path validation includes native Inno Setup fresh-copy and overwrite probes. The rebuilt installer compiled successfully, and the sample project type-checks. Screenshots were checked against the running packaged application.
+
+This is an initial preview, not full JetBrains feature parity. Refactorings reject unsupported or ambiguous syntax and require approval of related edits in Refactor Preview. Text matches outside TypeScript are heuristic. Analysis is bounded and static; it does not prove runtime value flow or that a public API is unused. See [supported scope](../../extensions/structural-typescript/README.md#supported-boundaries).
+
+The installer is unsigned. Its build and path probes do not establish that installation on every Windows configuration will succeed.

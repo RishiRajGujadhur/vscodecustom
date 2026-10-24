@@ -4,6 +4,8 @@ This built-in desktop extension adds four JetBrains-inspired feature areas to Co
 
 ## Commands and views
 
+See the [illustrated walkthrough and sample project](../../docs/structural-tools/README.md) for reproducible tests in the custom build.
+
 Open the Command Palette and search for **TypeScript Structure**. The commands also appear in the editor's **TypeScript Structure** context submenu.
 
 | Feature | Usage |
