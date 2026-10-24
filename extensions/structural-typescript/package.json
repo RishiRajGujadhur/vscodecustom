@@ -99,6 +99,16 @@
 				"command": "structural.safeRename",
 				"title": "%safeRename%",
 				"category": "%category%"
+			},
+			{
+				"title": "%functionFlow%",
+				"command": "structural.functionFlow",
+				"category": "%category%"
+			},
+			{
+				"title": "%valueOrigins%",
+				"command": "structural.valueOrigins",
+				"category": "%category%"
 			}
 		],
 		"submenus": [
@@ -141,6 +151,12 @@
 				},
 				{
 					"command": "structural.safeRename"
+				},
+				{
+					"command": "structural.functionFlow"
+				},
+				{
+					"command": "structural.valueOrigins"
 				}
 			],
 			"editor/context": [

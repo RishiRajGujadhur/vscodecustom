@@ -14,5 +14,7 @@
 	"flowFrom": "Show Possible Value Flow from Here",
 	"flowTo": "Show Possible Value Flow to Here",
 	"unused": "Analyze Project Types and Unused Declarations",
-	"category": "TypeScript Structure"
+	"category": "TypeScript Structure",
+	"functionFlow": "Analyze Function Control and Value Flow",
+	"valueOrigins": "Go to Reaching Value Origins"
 }

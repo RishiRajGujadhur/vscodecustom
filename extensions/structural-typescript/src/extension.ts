@@ -12,6 +12,7 @@ import { workspaceTextReferences } from './textReferences';
 import { RefactorError } from './errors';
 import { errorMessage } from './errorMessages';
 import { registerIntentions } from './intentionProvider';
+import { registerFunctionFlow } from './functionFlowView';
 
 function captureChanges(project: Project, changes: readonly Change[]): readonly Change[] {
 	return changes.map(change => ({ ...change, documentText: change.documentText ?? project.program.getSourceFile(change.fileName)?.text }));
@@ -50,6 +51,7 @@ export async function preview(changes: readonly Change[]): Promise<void> {
 
 export function activate(context: vscode.ExtensionContext): void {
 	registerIntentions(context, withProject, preview);
+	registerFunctionFlow(context, withProject, (id, action) => registerCommand(context, id, action));
 	registerStructure(context);
 	registerAnalysis(context, withProject, (id, action) => registerCommand(context, id, action));
 	for (const [id, operation] of [
