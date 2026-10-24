@@ -35,6 +35,7 @@ Click the `OwnedBuild` identifier in `models.ts`, run **Show Type Dependencies**
 ![Type dependencies through intersection and inheritance](docs/structural-tools/screenshots/type-dependencies.png)
 
 The [walkthrough](docs/structural-tools/README.md) also covers rename modes, reverse parameter conversion, member movement, and possible value flow. Read the [release notes](docs/structural-tools/RELEASE_NOTES.md) for this installation. The [extension reference](extensions/structural-typescript/README.md) documents supported syntax, analysis limits, validation, and Windows installer builds.
+
 ## Build the Windows installer
 
 On Windows x64, install the Node version specified in [.nvmrc](.nvmrc), Visual Studio's **Desktop development with C++** workload, and a Windows SDK. From the repository root, run:
