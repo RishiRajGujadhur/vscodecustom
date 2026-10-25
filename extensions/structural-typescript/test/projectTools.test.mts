@@ -9,6 +9,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { Project } from '../out/project.js';
 import { moveModuleMembers } from '../out/moduleMembers.js';
+import { findDeadCode } from '../out/deadCode.js';
 
 function fixture(files: Record<string, string>, action: (project: Project, root: string) => void): void {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'project-tools-'));
@@ -34,4 +35,29 @@ test('module move migrates aliased consumers, dependencies and retained source u
 
 test('module move refuses incompatible module directives', () => fixture({ 'a.ts': '"use client"; export const value = 1;', 'b.ts': 'export {};' }, (project, root) => {
 	assert.throws(() => moveModuleMembers(project, path.join(root, 'a.ts'), 26, 26, path.join(root, 'b.ts')), /moveDirectives/);
+}));
+
+
+test('dead code follows aliases, barrel exports, JSX uses and dead recursive groups', () => fixture({
+	'a.ts': 'import { used as alias } from "./b"; console.log(alias());',
+	'b.ts': 'export function used(){return 1;} export function unused(){return helper();} function helper(){return unused();}',
+	'c.ts': 'export function disconnected(){ return 0; }'
+}, (project, root) => {
+	const findings = findDeadCode(project, [path.join(root, 'a.ts')]);
+	assert.deepEqual(findings.map(item => [item.name, item.kind]).sort(), [['c.ts', 'file'], ['disconnected', 'export'], ['helper', 'function'], ['unused', 'export']]);
+}));
+
+test('dead code preserves public entry exports and re-exported symbols', () => fixture({
+	'a.ts': 'export { api } from "./b";',
+	'b.ts': 'export function api(){return 1;} export const unused = 1;'
+}, (project, root) => {
+	assert.deepEqual(findDeadCode(project, [path.join(root, 'a.ts')]).map(item => item.name), ['unused']);
+}));
+
+
+test('dead code recognizes JSX component uses and preserves initializer side effects', () => fixture({
+	'a.ts': 'import "./b";',
+	'b.tsx': 'export function Used(){return <div/>;} export function Unused(){return <div/>;} console.log(<Used/>); function effect(){return 1;} export const result = effect();'
+}, (project, root) => {
+	assert.deepEqual(findDeadCode(project, [path.join(root, 'a.ts')]).map(item => [item.name, item.kind]), [['Unused', 'component'], ['result', 'export']]);
 }));

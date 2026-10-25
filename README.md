@@ -84,3 +84,11 @@ Open a TypeScript/JavaScript project and place the cursor inside a top-level exp
 Moves use TypeScript’s import-aware refactoring and reject edits that introduce compiler errors. Source and destination must share module directives. Review initialization order, circular dependencies and consumers outside the active compiler project; those runtime and external uses cannot be proven safe. Existing files only; no automatic file creation.
 
 ![Move exports and update imports in Refactor Preview](docs/structural-tools/screenshots/move-module-members.png)
+
+## Find Dead Code
+
+Open an application entry file and run **TypeScript Structure: Find Dead Code**. Select **all** application, test and framework entry files in the multi-select picker; the active file is preselected. Their exports count as public API. Results appear in **Problems** as possibly unused exports, JSX components, functions/classes, and files unreachable from those entries. Click a result to navigate. Try `deadCodeEntry.ts`, which uses `activeLabel` but leaves `unusedLabel`, its recursive helper and the orphan module unused.
+
+The analysis follows resolved symbols, imported aliases, barrel exports, JSX references and module dependencies. Dead recursive groups do not keep each other alive. Executable initializer uses are retained conservatively. It scans the active compiler project, excludes declarations and dependencies, and includes unsaved buffers. Named declarations are analyzed; anonymous default declarations are not separately reported. Dynamic imports with computed paths, reflection, plugin registration, framework discovery and external package consumers require manual review. No code is deleted. Results clear when files change; rerun the command for a fresh report.
+
+![Dead code candidates in the Problems panel](docs/structural-tools/screenshots/find-dead-code.png)

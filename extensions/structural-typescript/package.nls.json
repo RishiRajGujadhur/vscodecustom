@@ -20,5 +20,6 @@
 	"safeDelete": "Safe Delete Symbol",
 	"safeDeleteFile": "Safe Delete File",
 	"changeSignature": "Change Signature and Update Callers",
-	"moveModuleMembers": "Move Module Members"
+	"moveModuleMembers": "Move Module Members",
+	"findDeadCode": "Find Dead Code"
 }

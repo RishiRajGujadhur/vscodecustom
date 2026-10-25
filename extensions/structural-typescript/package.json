@@ -129,6 +129,11 @@
 				"command": "structural.moveModuleMembers",
 				"title": "%moveModuleMembers%",
 				"category": "%category%"
+			},
+			{
+				"command": "structural.findDeadCode",
+				"title": "%findDeadCode%",
+				"category": "%category%"
 			}
 		],
 		"submenus": [
@@ -189,6 +194,9 @@
 				},
 				{
 					"command": "structural.moveModuleMembers"
+				},
+				{
+					"command": "structural.findDeadCode"
 				}
 			],
 			"editor/context": [
