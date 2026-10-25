@@ -11,6 +11,7 @@ export interface SignatureParameter {
 	readonly originalIndex?: number;
 	readonly name: string;
 	readonly type?: string;
+	readonly originalType?: string;
 	readonly optional?: boolean;
 	readonly defaultValue?: string | null;
 	readonly migrationValue?: string;
@@ -63,7 +64,11 @@ function target(project: Project, fileName: string, offset: number): Declaration
 }
 export function currentSignature(project: Project, fileName: string, offset: number): { name: string; parameters: readonly SignatureParameter[] } {
 	const declaration = target(project, fileName, offset)[0];
-	return { name: nameOf(declaration)!.getText(), parameters: declaration.parameters.map((parameter, originalIndex) => ({ originalIndex, name: parameter.name.getText(), optional: !!parameter.questionToken, defaultValue: parameter.initializer?.getText() })) };
+	return { name: nameOf(declaration)!.getText(), parameters: declaration.parameters.map((parameter, originalIndex) => ({ originalIndex, name: parameter.name.getText(), originalType: parameter.type?.getText(), optional: !!parameter.questionToken, defaultValue: parameter.initializer?.getText() })) };
+}
+/** Validates a name before the interactive editor accepts it. */
+export function validParameterName(name: string): boolean {
+	return /^[$A-Z_a-z][$\w]*$/.test(name) && !ts.transpileModule('function candidate(' + name + ') {}', { reportDiagnostics: true }).diagnostics?.some(diagnostic => diagnostic.category === ts.DiagnosticCategory.Error);
 }
 export function validExpression(text: string): boolean {
 	const source = ts.createSourceFile('expression.ts', `const value = (${text});`, ts.ScriptTarget.Latest, true);
@@ -84,7 +89,7 @@ export function changeSignature(project: Project, fileName: string, offset: numb
 	const declarations = target(project, fileName, offset), base = declarations[0];
 	if (!/\.(?:[cm]?ts|tsx)$/i.test(fileName) && !project.program.getCompilerOptions().checkJs) { throw new SignatureError('parameters'); }
 	const indices = parameters.flatMap(parameter => parameter.originalIndex === undefined ? [] : [parameter.originalIndex]);
-	if (parameters.length > 24 || new Set(parameters.map(parameter => parameter.name)).size !== parameters.length || new Set(indices).size !== indices.length || indices.some(index => !Number.isInteger(index) || index < 0 || index >= base.parameters.length) || parameters.some(parameter => !/^[$A-Z_a-z][$\w]*$/.test(parameter.name) || parameter.defaultValue !== undefined && parameter.defaultValue !== null && !validExpression(parameter.defaultValue) || parameter.migrationValue !== undefined && !validExpression(parameter.migrationValue))) { throw new SignatureError('syntax'); }
+	if (parameters.length > 24 || new Set(parameters.map(parameter => parameter.name)).size !== parameters.length || new Set(indices).size !== indices.length || indices.some(index => !Number.isInteger(index) || index < 0 || index >= base.parameters.length) || parameters.some(parameter => !validParameterName(parameter.name) || parameter.defaultValue !== undefined && parameter.defaultValue !== null && !validExpression(parameter.defaultValue) || parameter.migrationValue !== undefined && !validExpression(parameter.migrationValue))) { throw new SignatureError('syntax'); }
 	if (base.parameters.some((parameter, index) => !indices.includes(index) && parameter.initializer && !(ts.isStringLiteralLike(parameter.initializer) || ts.isNumericLiteral(parameter.initializer) || ts.isArrowFunction(parameter.initializer) || ts.isFunctionExpression(parameter.initializer) || [ts.SyntaxKind.TrueKeyword, ts.SyntaxKind.FalseKeyword, ts.SyntaxKind.NullKeyword].includes(parameter.initializer.kind)))) { throw new SignatureError('effects'); }
 	const changes: Change[] = [], renames: Change[] = [];
 	for (const declaration of declarations) {

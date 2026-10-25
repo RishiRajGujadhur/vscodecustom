@@ -122,6 +122,10 @@ Keep source and tests in the active compiler project. If an application's config
 
 Conventional test filenames and folders, supported framework imports, literal test titles, imported aliases, suite titles and common `.each(...)` registrations are recognized. Parameterized registrations appear once. Shared setup hooks and test-file initialization conservatively affect all recognized cases in that file. Custom registration wrappers, computed imports, mocks and runtime global effects can require additional tests or broader module analysis; an empty result does not establish that no tests are affected.
 
+## Everyday workflow improvements
+
+The [quality-of-life guide](QUALITY_OF_LIFE.md) covers the searchable tool picker, remembered entry files and move destinations, analysis cleanup, test-impact clipboard exports, signature undo/reset and validation, grouped deletion reports, and flow-view search controls. It includes screenshots and manual checks.
+
 ## Regression verification
 
 The [25 October code review](CODE_REVIEW.md) records the edge cases fixed across all eight structural feature areas. Run `npm run test --prefix extensions/structural-typescript` from the repository root to compile the extension and execute the regression suite.

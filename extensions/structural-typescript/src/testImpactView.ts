@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import { Project } from './project';
-import { analyzeTestImpact, ImpactTarget } from './testImpact';
+import { analyzeTestImpact, ImpactTarget, ImpactedTest } from './testImpact';
 import { projectSnapshot, sameSnapshot, snapshotText } from './snapshot';
 import { documentOffset } from './documentEdits';
 
@@ -15,6 +15,35 @@ interface ImpactRepository {
 }
 interface ImpactGitExtension { getAPI(version: 1): { getRepository(uri: vscode.Uri): ImpactRepository | null } }
 
+
+async function pickImpactedTest(tests: readonly ImpactedTest[]): Promise<ImpactedTest | undefined> {
+	const picker = vscode.window.createQuickPick<vscode.QuickPickItem & { test: ImpactedTest }>();
+	const subscriptions: vscode.Disposable[] = [picker];
+	const copyPaths: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon('files'), tooltip: vscode.l10n.t('Copy Affected Test File Paths') };
+	const copyReport: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon('copy'), tooltip: vscode.l10n.t('Copy Impact Report') };
+	picker.title = vscode.l10n.t('Test Impact Analysis — {0} Results', tests.length);
+	picker.placeholder = vscode.l10n.t('Search Tests, Files or Dependency Chains. Enter Opens a Result.');
+	picker.matchOnDescription = true; picker.matchOnDetail = true;
+	picker.buttons = [copyPaths, copyReport];
+	picker.items = tests.map(test => ({ label: test.kind === 'file' ? vscode.l10n.t('Test File: {0}', test.name) : test.name, description: vscode.workspace.asRelativePath(test.fileName), detail: test.chain.map(step => step.name).join(' → '), test }));
+	let disposed = false;
+	try {
+		return await new Promise<ImpactedTest | undefined>(resolve => {
+			subscriptions.push(picker.onDidAccept(() => resolve(picker.selectedItems[0]?.test)));
+			subscriptions.push(picker.onDidHide(() => resolve(undefined)));
+			subscriptions.push(picker.onDidTriggerButton(async button => {
+				try {
+					const paths = [...new Set(tests.map(test => vscode.workspace.asRelativePath(test.fileName)))];
+					const text = button === copyPaths ? paths.join('\n') : tests.map(test => [test.name, vscode.workspace.asRelativePath(test.fileName), test.chain.map(step => step.name).join(' → ')].join('\n')).join('\n\n');
+					await vscode.env.clipboard.writeText(text);
+					if (!disposed) { picker.title = button === copyPaths ? vscode.l10n.t('Copied {0} Affected Test File Paths', paths.length) : vscode.l10n.t('Copied Test Impact Report'); }
+				} catch (error) { vscode.window.showErrorMessage(vscode.l10n.t('Could Not Copy Results: {0}', error instanceof Error ? error.message : String(error))); }
+			}));
+			picker.show();
+		});
+	} finally { disposed = true; for (const subscription of subscriptions) { subscription.dispose(); } }
+}
+
 /** Offers affected tests with reference/dependency evidence and source navigation. */
 export function registerTestImpact(command: (id: string, action: (editor: vscode.TextEditor) => Promise<void>) => void, run: <T>(document: vscode.TextDocument, action: (project: Project) => T) => T): void {
 	command('structural.testImpact', async editor => {
@@ -22,9 +51,9 @@ export function registerTestImpact(command: (id: string, action: (editor: vscode
 		const offset = document.offsetAt(editor.selection.active);
 		const version = document.version;
 		const scope = await vscode.window.showQuickPick([
-			{ label: vscode.l10n.t('Function or Symbol at Cursor'), scope: 'symbol' },
-			{ label: vscode.l10n.t('Active Module'), scope: 'module' },
-			{ label: vscode.l10n.t('Git-Changed Modules'), scope: 'git' }
+			{ label: vscode.l10n.t('Function or Symbol at Cursor'), detail: vscode.l10n.t('Follow callers and helpers to specific test registrations.'), scope: 'symbol' },
+			{ label: vscode.l10n.t('Active Module'), detail: vscode.l10n.t('Include tests in modules that depend on this file.'), scope: 'module' },
+			{ label: vscode.l10n.t('Git-Changed Modules'), detail: vscode.l10n.t('Include staged, unstaged, untracked and unsaved module changes.'), scope: 'git' }
 		], { placeHolder: vscode.l10n.t('Test Impact Analysis Scope') });
 		if (!scope) { return; }
 		let targets: ImpactTarget[] = [{ fileName: document.uri.fsPath, offset: scope.scope === 'symbol' ? offset : undefined }];
@@ -45,16 +74,12 @@ export function registerTestImpact(command: (id: string, action: (editor: vscode
 		const { result, snapshot } = run(document, project => ({ result: analyzeTestImpact(project, targets), snapshot: projectSnapshot(project) }));
 		if (result.excludedFiles.length) { vscode.window.showWarningMessage(vscode.l10n.t('{0} Changed Files Are Outside the Active Compiler Project or No Longer Exist. Their Impact Was Not Analyzed.', result.excludedFiles.length)); }
 		if (!result.tests.length) { vscode.window.showInformationMessage(vscode.l10n.t('No Statically Linked Tests Found in This Compiler Project. Dynamic and External Tests May Still Be Affected.')); return; }
-		const test = await vscode.window.showQuickPick(result.tests.map(test => ({
-			label: test.kind === 'file' ? vscode.l10n.t('Test File: {0}', test.name) : test.name,
-			description: vscode.workspace.asRelativePath(test.fileName),
-			detail: test.chain.map(step => step.name).join(' → '), test
-		})), { placeHolder: vscode.l10n.t('{0} Potentially Affected Tests — Select One to Open', result.tests.length), matchOnDescription: true, matchOnDetail: true });
+		const test = await pickImpactedTest(result.tests);
 		if (!test) { return; }
 		if (!run(document, project => sameSnapshot(project, snapshot))) { throw new Error(vscode.l10n.t('The Project Changed. Run Test Impact Analysis Again.')); }
-		const source = await vscode.workspace.openTextDocument(vscode.Uri.file(test.test.fileName));
-		const original = snapshotText(snapshot, test.test.fileName);
-		const mappedOffset = original === undefined ? undefined : documentOffset(original, source.getText(), test.test.start);
+		const source = await vscode.workspace.openTextDocument(vscode.Uri.file(test.fileName));
+		const original = snapshotText(snapshot, test.fileName);
+		const mappedOffset = original === undefined ? undefined : documentOffset(original, source.getText(), test.start);
 		if (mappedOffset === undefined) { throw new Error(vscode.l10n.t('The Source Changed. Run Test Impact Analysis Again.')); }
 		const position = source.positionAt(mappedOffset);
 		await vscode.window.showTextDocument(source, { selection: new vscode.Range(position, position) });

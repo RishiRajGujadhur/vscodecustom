@@ -7,7 +7,7 @@ import * as ts from 'typescript';
 import { AnalysisNode, flowTree, hierarchyRelations, symbolAt, typeTree, unusedDiagnostics } from './analysis';
 import { Project } from './project';
 
-export function registerAnalysis(context: vscode.ExtensionContext, run: <T>(document: vscode.TextDocument, action: (project: Project) => T) => T, command: (id: string, action: (editor: vscode.TextEditor) => Promise<void>) => void): void {
+export function registerAnalysis(context: vscode.ExtensionContext, run: <T>(document: vscode.TextDocument, action: (project: Project) => T) => T, command: (id: string, action: (editor: vscode.TextEditor) => Promise<void>) => void): () => void {
 	const hierarchyItem = (symbol: ts.Symbol): vscode.TypeHierarchyItem[] => {
 		const declaration = symbol.declarations?.find(node => ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node));
 		if (!declaration) { return []; }
@@ -89,5 +89,7 @@ export function registerAnalysis(context: vscode.ExtensionContext, run: <T>(docu
 		await vscode.commands.executeCommand('workbench.actions.view.problems');
 	});
 	// Results are snapshots; invalidate rather than leave stale ranges after edits.
-	context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(() => { diagnostics.clear(); roots = []; changes.fire(); }));
+	const clear = () => { diagnostics.clear(); roots = []; changes.fire(); };
+	context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(clear));
+	return clear;
 }

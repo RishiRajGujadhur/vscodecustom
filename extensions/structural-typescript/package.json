@@ -144,6 +144,21 @@
 				"command": "structural.testImpact",
 				"title": "%testImpact%",
 				"category": "%category%"
+			},
+			{
+				"command": "structural.openTools",
+				"title": "%openTools%",
+				"category": "%category%"
+			},
+			{
+				"command": "structural.showIntentions",
+				"title": "%showIntentions%",
+				"category": "%category%"
+			},
+			{
+				"command": "structural.clearAnalysisResults",
+				"title": "%clearAnalysisResults%",
+				"category": "%category%"
 			}
 		],
 		"submenus": [
@@ -155,64 +170,96 @@
 		"menus": {
 			"structural.tools": [
 				{
-					"command": "structural.typeDependencies"
+					"command": "structural.typeDependencies",
+					"group": "1_analysis@0"
 				},
 				{
-					"command": "structural.typeDependents"
+					"command": "structural.typeDependents",
+					"group": "1_analysis@1"
 				},
 				{
-					"command": "structural.flowFrom"
+					"command": "structural.flowFrom",
+					"group": "1_analysis@2"
 				},
 				{
-					"command": "structural.flowTo"
+					"command": "structural.flowTo",
+					"group": "1_analysis@3"
 				},
 				{
-					"command": "structural.unused"
+					"command": "structural.unused",
+					"group": "1_analysis@4"
 				},
 				{
-					"command": "structural.parameterObject"
+					"command": "structural.parameterObject",
+					"group": "2_refactor@5"
 				},
 				{
-					"command": "structural.inlineParameterObject"
+					"command": "structural.inlineParameterObject",
+					"group": "2_refactor@6"
 				},
 				{
-					"command": "structural.pullMemberUp"
+					"command": "structural.pullMemberUp",
+					"group": "2_refactor@7"
 				},
 				{
-					"command": "structural.pushMemberDown"
+					"command": "structural.pushMemberDown",
+					"group": "2_refactor@8"
 				},
 				{
-					"command": "structural.extractComponent"
+					"command": "structural.extractComponent",
+					"group": "2_refactor@9"
 				},
 				{
-					"command": "structural.safeRename"
+					"command": "structural.safeRename",
+					"group": "2_refactor@10"
 				},
 				{
-					"command": "structural.functionFlow"
+					"command": "structural.functionFlow",
+					"group": "1_analysis@11"
 				},
 				{
-					"command": "structural.valueOrigins"
+					"command": "structural.valueOrigins",
+					"group": "1_analysis@12"
 				},
 				{
-					"command": "structural.safeDelete"
+					"command": "structural.safeDelete",
+					"group": "2_refactor@13"
 				},
 				{
-					"command": "structural.safeDeleteFile"
+					"command": "structural.safeDeleteFile",
+					"group": "2_refactor@14"
 				},
 				{
-					"command": "structural.changeSignature"
+					"command": "structural.changeSignature",
+					"group": "2_refactor@15"
 				},
 				{
-					"command": "structural.moveModuleMembers"
+					"command": "structural.moveModuleMembers",
+					"group": "2_refactor@16"
 				},
 				{
-					"command": "structural.findDeadCode"
+					"command": "structural.findDeadCode",
+					"group": "1_analysis@17"
 				},
 				{
-					"command": "structural.advancedNullability"
+					"command": "structural.advancedNullability",
+					"group": "1_analysis@18"
 				},
 				{
-					"command": "structural.testImpact"
+					"command": "structural.testImpact",
+					"group": "1_analysis@19"
+				},
+				{
+					"command": "structural.openTools",
+					"group": "0_tools@0"
+				},
+				{
+					"command": "structural.showIntentions",
+					"group": "0_tools@1"
+				},
+				{
+					"command": "structural.clearAnalysisResults",
+					"group": "3_results"
 				}
 			],
 			"editor/context": [

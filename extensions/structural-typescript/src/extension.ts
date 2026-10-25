@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import { documentChange, documentOffset } from './documentEdits';
 import { registerProjectTools } from './projectToolsView';
+import { registerToolbox } from './toolbox';
 import { Project } from './project';
 import { Change, extractComponent, rename } from './refactor';
 import { registerStructure } from './structureView';
@@ -61,13 +62,14 @@ export async function preview(changes: readonly Change[], files: readonly { file
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-	registerProjectTools(context, withProject, (id, action) => registerCommand(context, id, action), preview);
+	const clearProjectAnalysis = registerProjectTools(context, withProject, (id, action) => registerCommand(context, id, action), preview);
 	registerIntentions(context, withProject, preview);
 	registerFunctionFlow(context, withProject, (id, action) => registerCommand(context, id, action));
 	registerSafeDelete(withProject, (id, action) => registerCommand(context, id, action), preview);
 	registerChangeSignature(withProject, (id, action) => registerCommand(context, id, action), preview);
 	registerStructure(context);
-	registerAnalysis(context, withProject, (id, action) => registerCommand(context, id, action));
+	const clearDependencies = registerAnalysis(context, withProject, (id, action) => registerCommand(context, id, action));
+	registerToolbox(context, () => { clearProjectAnalysis(); clearDependencies(); });
 	for (const [id, operation] of [
 		['structural.parameterObject', (project: Project, file: string, offset: number) => parameterObject(project, file, offset)],
 		['structural.inlineParameterObject', (project: Project, file: string, offset: number) => inlineParameterObject(project, file, offset)],

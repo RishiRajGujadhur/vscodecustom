@@ -23,5 +23,8 @@
 	"moveModuleMembers": "Move Module Members",
 	"findDeadCode": "Find Dead Code",
 	"advancedNullability": "Advanced Nullability Analysis",
-	"testImpact": "Test Impact Analysis"
+	"testImpact": "Test Impact Analysis",
+	"openTools": "Open Structural Tools",
+	"showIntentions": "Show Advanced Intention Actions",
+	"clearAnalysisResults": "Clear Analysis Results"
 }

@@ -12,6 +12,7 @@ import { analyzeNullability } from './nullability';
 import { registerTestImpact } from './testImpactView';
 import { projectSnapshot, sameSnapshot, snapshotText } from './snapshot';
 import { documentOffset } from './documentEdits';
+import { canonicalFileName } from './projectGraph';
 
 
 function analysisRange(document: vscode.TextDocument, snapshot: ReadonlyMap<string, string>, start: number, length: number): vscode.Range | undefined {
@@ -23,7 +24,7 @@ function analysisRange(document: vscode.TextDocument, snapshot: ReadonlyMap<stri
 }
 
 /** Registers project tools alongside the existing structural refactoring commands. */
-export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(document: vscode.TextDocument, action: (project: Project) => T) => T, command: (id: string, action: (editor: vscode.TextEditor) => Promise<void>) => void, preview: (changes: readonly Change[]) => Promise<void>): void {
+export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(document: vscode.TextDocument, action: (project: Project) => T) => T, command: (id: string, action: (editor: vscode.TextEditor) => Promise<void>) => void, preview: (changes: readonly Change[]) => Promise<void>): () => void {
 	registerTestImpact(command, run);
 	const diagnostics = vscode.languages.createDiagnosticCollection('structural-project-tools');
 	const nullDiagnostics = vscode.languages.createDiagnosticCollection('structural-nullability');
@@ -66,14 +67,18 @@ export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(
 	command('structural.findDeadCode', async editor => {
 		const request = ++deadRun;
 		const document = editor.document;
-		const files = run(document, project => project.program.getSourceFiles().filter(file => !file.isDeclarationFile && !project.program.isSourceFileFromExternalLibrary(file)).map(file => ({ label: vscode.workspace.asRelativePath(file.fileName), fileName: file.fileName, picked: path.resolve(file.fileName) === document.uri.fsPath })));
-		const entries = await vscode.window.showQuickPick(files, { canPickMany: true, placeHolder: vscode.l10n.t('Select All Application Entry Files (Their Exports Are Public API)') });
+		const projectKey = run(document, project => canonicalFileName(project.directory));
+		const saved = context.workspaceState.get<readonly string[]>('structural.deadCode.entries.' + projectKey);
+		const files = run(document, project => project.program.getSourceFiles().filter(file => !file.isDeclarationFile && !project.program.isSourceFileFromExternalLibrary(file)).map(file => ({ label: vscode.workspace.asRelativePath(file.fileName), fileName: file.fileName, picked: saved ? saved.includes(canonicalFileName(file.fileName)) : path.resolve(file.fileName) === document.uri.fsPath })));
+		if (!files.some(file => file.picked)) { const active = files.find(file => path.resolve(file.fileName) === document.uri.fsPath); if (active) { active.picked = true; } }
+		const entries = await vscode.window.showQuickPick(files, { canPickMany: true, title: vscode.l10n.t('Find Dead Code — Entry Files'), placeHolder: vscode.l10n.t('Select All Entry Files. Your Selection Is Remembered for This Project.'), matchOnDescription: true });
 		if (!entries?.length) { return; }
 		const analyzedGeneration = generation;
 		const { findings, snapshot } = run(document, project => {
 			try { return { findings: findDeadCode(project, entries.map(entry => entry.fileName)), snapshot: projectSnapshot(project) }; }
 			catch (error) { if (error instanceof Error && error.message === 'deadCodeEntry') { throw new Error(vscode.l10n.t('An Entry File Left the Compiler Project. Run Find Dead Code Again.')); } throw error; }
 		});
+		await context.workspaceState.update('structural.deadCode.entries.' + projectKey, entries.map(entry => canonicalFileName(entry.fileName)));
 		const byFile = new Map<string, vscode.Diagnostic[]>();
 		for (const finding of findings) {
 			const source = await vscode.workspace.openTextDocument(vscode.Uri.file(finding.fileName));
@@ -99,7 +104,9 @@ export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(
 	command('structural.moveModuleMembers', async editor => {
 		const document = editor.document;
 		const targets = run(document, project => project.program.getSourceFiles().filter(file => path.resolve(file.fileName) !== document.uri.fsPath && !file.isDeclarationFile && !project.program.isSourceFileFromExternalLibrary(file)).map(file => ({ label: vscode.workspace.asRelativePath(file.fileName), fileName: file.fileName })));
-		const target = await vscode.window.showQuickPick(targets, { placeHolder: vscode.l10n.t('Move Exports to an Existing Project File') });
+		const previous = context.workspaceState.get<string>('structural.moveModuleMembers.destination.' + canonicalFileName(path.dirname(document.uri.fsPath)));
+		const ranked = targets.map(target => ({ ...target, description: canonicalFileName(target.fileName) === previous ? vscode.l10n.t('Last Destination') : undefined })).sort((a, b) => Number(!!b.description) - Number(!!a.description) || a.label.localeCompare(b.label));
+		const target = await vscode.window.showQuickPick(ranked, { title: vscode.l10n.t('Move Module Members'), placeHolder: vscode.l10n.t('Move Exports to an Existing Project File'), matchOnDescription: true });
 		if (!target) { return; }
 		let changes: readonly Change[];
 		let snapshot: ReadonlyMap<string, string>;
@@ -117,11 +124,13 @@ export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(
 			};
 			throw new Error(error instanceof Error ? messages[error.message] ?? error.message : String(error));
 		}
+		await context.workspaceState.update('structural.moveModuleMembers.destination.' + canonicalFileName(path.dirname(document.uri.fsPath)), canonicalFileName(target.fileName));
 		const review = vscode.l10n.t('Review Edits');
 		if (await vscode.window.showWarningMessage(vscode.l10n.t('Review Module Initialization Order and Consumers Outside This Compiler Project.'), review) === review) {
 			if (!run(document, project => sameSnapshot(project, snapshot))) { throw new Error(vscode.l10n.t('The Project Changed. Run Move Module Members Again.')); }
 			await preview(changes);
 		}
 	});
+	return clear;
 }
 

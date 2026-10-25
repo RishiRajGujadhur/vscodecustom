@@ -87,7 +87,7 @@ Moves use TypeScript’s import-aware refactoring and reject edits that introduc
 
 ## Find Dead Code
 
-Open an application entry file and run **TypeScript Structure: Find Dead Code**. Select **all** application, test and framework entry files in the multi-select picker; the active file is preselected. Their exports count as public API. Results appear in **Problems** as possibly unused exports, JSX components, functions/classes, and files unreachable from those entries. Click a result to navigate. Try `deadCodeEntry.ts`, which uses `activeLabel` but leaves `unusedLabel`, its recursive helper and the orphan module unused.
+Open an application entry file and run **TypeScript Structure: Find Dead Code**. Select **all** application, test and framework entry files in the multi-select picker; the active file is preselected on the first run, and later runs remember the entry selection for this compiler project. Their exports count as public API. Results appear in **Problems** as possibly unused exports, JSX components, functions/classes, and files unreachable from those entries. Click a result to navigate. Try `deadCodeEntry.ts`, which uses `activeLabel` but leaves `unusedLabel`, its recursive helper and the orphan module unused.
 
 The analysis follows resolved symbols, imported aliases, barrel exports, JSX references and module dependencies. Dead recursive groups do not keep each other alive. Executable initializer uses are retained conservatively. It scans the active compiler project, excludes declarations and dependencies, and includes unsaved buffers. Named declarations are analyzed; anonymous default declarations are not separately reported. Dynamic imports with computed paths, reflection, plugin registration, framework discovery and external package consumers require manual review. No code is deleted. Results clear when files change; rerun the command for a fresh report.
 
@@ -122,3 +122,7 @@ Test discovery recognizes `.test.*`, `.spec.*`, `test/`, `tests/`, and `__tests_
 Keep source and tests in the same compiler project; excluded test projects are not scanned. If the application config excludes tests, open a test file under a config that includes them and select the imported symbol there. Git mode reports changed files outside that project or deleted from it as unanalyzed. Computed module paths, reflection, custom registration wrappers, mocks, runtime global effects and anonymous declarations can require broader module analysis or additional tests. The report is a static candidate list and does not establish runtime coverage.
 
 ![Affected test cases with direct and transitive symbol reference chains](docs/structural-tools/screenshots/test-impact-analysis.png)
+
+## Everyday Structural Tools
+
+Run **TypeScript Structure: Open Structural Tools** for a searchable picker covering the analysis, refactoring and intention commands. The [quality-of-life guide](docs/structural-tools/QUALITY_OF_LIFE.md) shows remembered entry files and move destinations, clearable analysis results, test-impact clipboard exports, signature undo/reset with inline validation, grouped deletion reports, and flow-view filters with screenshots.
