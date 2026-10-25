@@ -76,3 +76,11 @@ For the base editor's architecture, contribution guidelines, and development wor
 ## License and attribution
 
 This project is a fork of Microsoft's Visual Studio Code open-source repository. Code OSS is licensed under the [MIT License](LICENSE.txt). Microsoft copyright notices and applicable third-party notices remain in their source files and [ThirdPartyNotices.txt](ThirdPartyNotices.txt).
+
+## Move Module Members
+
+Open a TypeScript/JavaScript project and place the cursor inside a top-level exported declaration, or select several exports. Run **TypeScript Structure: Move Module Members**, choose an existing source file, then choose **Review Edits**. Inspect the destination, dependency imports and updated consumers in Refactor Preview before applying. Try `moduleSource.ts` → `moduleTarget.ts` in the [demo](docs/structural-tools/demo); `moduleConsumer.ts` uses an aliased import that follows the move.
+
+Moves use TypeScript’s import-aware refactoring and reject edits that introduce compiler errors. Source and destination must share module directives. Review initialization order, circular dependencies and consumers outside the active compiler project; those runtime and external uses cannot be proven safe. Existing files only; no automatic file creation.
+
+![Move exports and update imports in Refactor Preview](docs/structural-tools/screenshots/move-module-members.png)

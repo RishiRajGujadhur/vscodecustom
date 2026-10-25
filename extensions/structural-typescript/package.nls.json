@@ -19,5 +19,6 @@
 	"valueOrigins": "Go to Reaching Value Origins",
 	"safeDelete": "Safe Delete Symbol",
 	"safeDeleteFile": "Safe Delete File",
-	"changeSignature": "Change Signature and Update Callers"
+	"changeSignature": "Change Signature and Update Callers",
+	"moveModuleMembers": "Move Module Members"
 }

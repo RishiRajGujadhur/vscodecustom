@@ -89,3 +89,11 @@ node extensions/structural-typescript/test/run-integration.mts "path/to/Code - O
 ```
 
 The first command bundles the compiler, standard library declarations and license notices into `.build/releases/structural-typescript-0.2.0.vsix`. Install through **Extensions → Install from VSIX** and reload the editor. This updates the extension without rebuilding the earlier Windows installer. The integration runner uses isolated temporary profile, extension and shared-data directories. It checks actual extension-host registration, lightbulb actions, the flow webview, blocked deletion and cancelled signature editing. Successful runs remove their temporary profile; failed runs retain it for diagnostics.
+
+## Move Module Members
+
+Open a TypeScript/JavaScript project and place the cursor inside a top-level exported declaration, or select several exports. Run **TypeScript Structure: Move Module Members**, choose an existing source file, then choose **Review Edits**. Inspect the destination, dependency imports and updated consumers in Refactor Preview before applying. Try `moduleSource.ts` → `moduleTarget.ts` in the [demo](../../docs/structural-tools/demo); `moduleConsumer.ts` uses an aliased import that follows the move.
+
+Moves use TypeScript’s import-aware refactoring and reject edits that introduce compiler errors. Source and destination must share module directives. Review initialization order, circular dependencies and consumers outside the active compiler project; those runtime and external uses cannot be proven safe. Existing files only; no automatic file creation.
+
+![Move exports and update imports in Refactor Preview](../../docs/structural-tools/screenshots/move-module-members.png)

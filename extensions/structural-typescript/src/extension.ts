@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
+import { registerProjectTools } from './projectToolsView';
 import { Project } from './project';
 import { Change, extractComponent, rename } from './refactor';
 import { registerStructure } from './structureView';
@@ -58,6 +59,7 @@ export async function preview(changes: readonly Change[], files: readonly { file
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+	registerProjectTools(context, withProject, (id, action) => registerCommand(context, id, action), preview);
 	registerIntentions(context, withProject, preview);
 	registerFunctionFlow(context, withProject, (id, action) => registerCommand(context, id, action));
 	registerSafeDelete(withProject, (id, action) => registerCommand(context, id, action), preview);

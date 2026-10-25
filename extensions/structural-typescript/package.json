@@ -124,6 +124,11 @@
 				"command": "structural.changeSignature",
 				"title": "%changeSignature%",
 				"category": "%category%"
+			},
+			{
+				"command": "structural.moveModuleMembers",
+				"title": "%moveModuleMembers%",
+				"category": "%category%"
 			}
 		],
 		"submenus": [
@@ -181,6 +186,9 @@
 				},
 				{
 					"command": "structural.changeSignature"
+				},
+				{
+					"command": "structural.moveModuleMembers"
 				}
 			],
 			"editor/context": [
