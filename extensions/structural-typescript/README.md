@@ -138,4 +138,4 @@ Keep source and tests in the same compiler project; excluded test projects are n
 
 ## Everyday Structural Tools
 
-Run **TypeScript Structure: Open Structural Tools** for a searchable picker covering the analysis, refactoring and intention commands. The [quality-of-life guide](../../docs/structural-tools/QUALITY_OF_LIFE.md) shows remembered entry files and move destinations, clearable analysis results, test-impact clipboard exports, signature undo/reset with inline validation, grouped deletion reports, and flow-view filters with screenshots.
+Run **TypeScript Structure: Open Structural Tools** for a searchable picker covering the analysis, refactoring and intention commands. The [quality-of-life guide](../../docs/structural-tools/QUALITY_OF_LIFE.md) shows remembered entry files and move destinations, clearable analysis results, test-impact search and matching clipboard exports, remembered impact scope, copyable dead-code/nullability reports, signature undo/redo and recovery from rejected previews with inline validation, grouped deletion reports, and flow-view filters with screenshots.

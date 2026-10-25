@@ -25,12 +25,32 @@ function analysisRange(document: vscode.TextDocument, snapshot: ReadonlyMap<stri
 
 /** Registers project tools alongside the existing structural refactoring commands. */
 export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(document: vscode.TextDocument, action: (project: Project) => T) => T, command: (id: string, action: (editor: vscode.TextEditor) => Promise<void>) => void, preview: (changes: readonly Change[]) => Promise<void>): () => void {
-	registerTestImpact(command, run);
+	registerTestImpact(context, command, run);
 	const diagnostics = vscode.languages.createDiagnosticCollection('structural-project-tools');
 	const nullDiagnostics = vscode.languages.createDiagnosticCollection('structural-nullability');
 	context.subscriptions.push(diagnostics, nullDiagnostics);
 	let generation = 0, nullRun = 0, deadRun = 0;
-	const clear = () => { generation++; diagnostics.clear(); nullDiagnostics.clear(); };
+	let latestReport: string | undefined;
+	const report = (title: string, byFile: ReadonlyMap<string, readonly vscode.Diagnostic[]>) => {
+		const lines = [title, ''];
+		for (const [file, findings] of byFile) {
+			for (const finding of findings) {
+				lines.push(`${vscode.workspace.asRelativePath(file)}:${finding.range.start.line + 1}:${finding.range.start.character + 1} — ${finding.message}`);
+				for (const related of finding.relatedInformation ?? []) {
+					lines.push(`  ${vscode.workspace.asRelativePath(related.location.uri)}:${related.location.range.start.line + 1}:${related.location.range.start.character + 1} — ${related.message}`);
+				}
+			}
+		}
+		return lines.length > 2 ? lines.join('\n') : title + '\n\n' + vscode.l10n.t('No Findings.');
+	};
+	context.subscriptions.push(vscode.commands.registerCommand('structural.copyAnalysisReport', async () => {
+		if (latestReport === undefined) { vscode.window.showInformationMessage(vscode.l10n.t('Run Find Dead Code or Advanced Nullability Analysis First.')); return; }
+		try {
+			await vscode.env.clipboard.writeText(latestReport);
+			vscode.window.showInformationMessage(vscode.l10n.t('Copied Analysis Report.'));
+		} catch (error) { vscode.window.showErrorMessage(vscode.l10n.t('Could Not Copy Results: {0}', error instanceof Error ? error.message : String(error))); }
+	}));
+	const clear = () => { generation++; latestReport = undefined; diagnostics.clear(); nullDiagnostics.clear(); };
 	context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(clear), vscode.workspace.onDidCreateFiles(clear), vscode.workspace.onDidDeleteFiles(clear), vscode.workspace.onDidRenameFiles(clear));
 	command('structural.advancedNullability', async editor => {
 		const request = ++nullRun;
@@ -60,6 +80,7 @@ export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(
 		}
 		if (generation !== analyzedGeneration || request !== nullRun) { return; }
 		nullDiagnostics.clear();
+		latestReport = report(vscode.l10n.t('Advanced Nullability Analysis'), byFile);
 		for (const [file, list] of byFile) { nullDiagnostics.set(vscode.Uri.file(file), list); }
 		if (!findings.length) { vscode.window.showInformationMessage(vscode.l10n.t('No Nullability Hazards Found in This Compiler Project.')); }
 		await vscode.commands.executeCommand('workbench.actions.view.problems');
@@ -97,6 +118,7 @@ export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(
 		}
 		if (generation !== analyzedGeneration || request !== deadRun) { return; }
 		diagnostics.clear();
+		latestReport = report(vscode.l10n.t('Find Dead Code'), byFile);
 		for (const [file, list] of byFile) { diagnostics.set(vscode.Uri.file(file), list); }
 		if (!findings.length) { vscode.window.showInformationMessage(vscode.l10n.t('No Dead Code Candidates Found for the Selected Entry Files.')); }
 		await vscode.commands.executeCommand('workbench.actions.view.problems');

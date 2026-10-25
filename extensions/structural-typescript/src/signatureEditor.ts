@@ -26,7 +26,8 @@ export function registerChangeSignature(withProject: <T>(document: vscode.TextDo
 			const { signature, snapshot } = withProject(editor.document, project => ({ signature: currentSignature(project, file, offset), snapshot: projectSnapshot(project) }));
 			const parameters: SignatureParameter[] = [...signature.parameters];
 			const history: SignatureParameter[][] = [];
-			const remember = () => { history.push([...parameters]); if (history.length > 50) { history.shift(); } };
+			const future: SignatureParameter[][] = [];
+			const remember = () => { history.push([...parameters]); future.length = 0; if (history.length > 50) { history.shift(); } };
 			const nameError = (name: string) => validParameterName(name) && !parameters.some(parameter => parameter.name === name) ? undefined : vscode.l10n.t('Enter a Valid, Unique Parameter Name.');
 			const expressionError = (text: string) => validExpression(text) ? undefined : vscode.l10n.t('Enter a Valid Expression.');
 			const choose = async () => vscode.window.showQuickPick(parameters.map((parameter, index) => ({ label: `${index + 1}. ${parameter.name}`, description: parameter.type ?? parameter.originalType ?? vscode.l10n.t('Keep Original Type'), index })), { placeHolder: vscode.l10n.t('Choose a Parameter') });
@@ -38,18 +39,29 @@ export function registerChangeSignature(withProject: <T>(document: vscode.TextDo
 					{ label: vscode.l10n.t('Remove Parameter'), id: 'remove' },
 					{ label: vscode.l10n.t('Move Parameter'), id: 'move' },
 					{ label: vscode.l10n.t('Convert Current Signature to Options Object'), id: 'options' },
-					...(history.length ? [{ label: vscode.l10n.t('Undo Last Parameter Edit'), id: 'undo' }, { label: vscode.l10n.t('Reset to Original Signature'), id: 'reset' }] : [])
+					...(history.length ? [{ label: vscode.l10n.t('Undo Last Parameter Edit'), id: 'undo' }, { label: vscode.l10n.t('Reset to Original Signature'), id: 'reset' }] : []),
+					...(future.length ? [{ label: vscode.l10n.t('Redo Parameter Edit'), id: 'redo' }] : [])
 				], { title: `${signature.name}(${parameters.map(parameter => parameter.name + (parameter.optional ? '?' : '') + (parameter.type ?? parameter.originalType ? ': ' + (parameter.type ?? parameter.originalType) : '') + (parameter.defaultValue ? ' = ' + parameter.defaultValue : '')).join(', ')})`, placeHolder: vscode.l10n.t('Only Callers in the Current Compiler Project Are Migrated. Escape Cancels.') });
 				if (!action) { return; }
-				if (action.id === 'undo') { parameters.splice(0, parameters.length, ...history.pop()!); continue; }
+				if (action.id === 'undo') { future.push([...parameters]); parameters.splice(0, parameters.length, ...history.pop()!); continue; }
+				if (action.id === 'redo') { history.push([...parameters]); parameters.splice(0, parameters.length, ...future.pop()!); continue; }
 				if (action.id === 'reset') { remember(); parameters.splice(0, parameters.length, ...signature.parameters); continue; }
 				if (action.id === 'preview' || action.id === 'options') {
 					const result = withProject(editor.document, project => {
 						if (!sameSnapshot(project, snapshot)) { throw new Error(vscode.l10n.t('The Project Changed While Editing the Signature. Start Again.')); }
-						if (action.id === 'options') { const changes = parameterObject(project, file, offset); validateChanges(project, changes); return changes.map(change => ({ ...change, documentText: project.program.getSourceFile(change.fileName)!.text })); }
-						return changeSignature(project, file, offset, parameters).changes;
+						try {
+							if (action.id === 'options') { const changes = parameterObject(project, file, offset); validateChanges(project, changes); return { changes: changes.map(change => ({ ...change, documentText: project.program.getSourceFile(change.fileName)!.text })), error: undefined }; }
+							return { changes: changeSignature(project, file, offset, parameters).changes, error: undefined };
+						} catch (error) {
+							return { changes: undefined, error: error instanceof SignatureError ? errors[error.code]() : error instanceof Error ? error.message : String(error) };
+						}
 					});
-					await preview(result); return;
+					if (!result.changes) {
+						const resume = vscode.l10n.t('Continue Editing');
+						if (await vscode.window.showErrorMessage(result.error!, resume) === resume) { continue; }
+						return;
+					}
+					await preview(result.changes); return;
 				}
 				if (action.id === 'add') {
 					const name = await vscode.window.showInputBox({ prompt: vscode.l10n.t('New Parameter Name'), validateInput: nameError }); if (!name) { continue; }

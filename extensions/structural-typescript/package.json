@@ -159,6 +159,11 @@
 				"command": "structural.clearAnalysisResults",
 				"title": "%clearAnalysisResults%",
 				"category": "%category%"
+			},
+			{
+				"command": "structural.copyAnalysisReport",
+				"title": "%copyAnalysisReport%",
+				"category": "%category%"
 			}
 		],
 		"submenus": [
@@ -260,6 +265,10 @@
 				{
 					"command": "structural.clearAnalysisResults",
 					"group": "3_results"
+				},
+				{
+					"command": "structural.copyAnalysisReport",
+					"group": "3_results@0"
 				}
 			],
 			"editor/context": [

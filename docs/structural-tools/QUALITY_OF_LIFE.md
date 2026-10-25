@@ -14,21 +14,31 @@ Run **TypeScript Structure: Open Structural Tools**. The native picker groups an
 
 **Move Module Members** puts the last validated destination for that source directory first and labels it **Last Destination**. Selecting a destination does not apply edits: review the warning and Refactor Preview as before.
 
+**Test Impact Analysis** remembers the last successfully analyzed scope for this workspace, labels it **Last Scope**, and puts it first. You can still select any scope on each run.
+
 Run **Clear Analysis Results** from the palette or tool picker to clear structural dead-code, nullability and older unused-analysis diagnostics, plus dependency trees. Other extensions' Problems entries remain available. Your saved entry choices are retained.
 
-## Copy affected tests
+## Search and copy affected tests
 
-The Test Impact Analysis result picker has **Copy Affected Test File Paths** and **Copy Impact Report** toolbar buttons. Hover the icons to see their labels. The first copies unique workspace-relative file paths, one per line. The second copies test names, file paths and dependency chains. Both copy the complete analysis result, including entries hidden by a search filter, without closing the picker. The title confirms a successful copy. Enter still opens the selected test after snapshot validation.
+The Test Impact Analysis result picker searches test titles, workspace-relative file paths and dependency-chain names. Search is case insensitive; every space-separated word must match somewhere in those fields. The title shows the matching count out of the full result count. **Clear Search** restores all results.
+
+The toolbar has **Copy Matching Test File Paths** and **Copy Matching Impact Report** buttons. Hover the icons to see their labels. Paths are unique and workspace relative, one per line; reports include test names, paths and dependency chains. Both export only the current matching results without closing the picker. Clear the search to export all results. If nothing matches, copy leaves the clipboard unchanged and shows an explanation. Enter opens the selected test after snapshot validation.
 
 ![Test impact copy actions](screenshots/test-impact-copy.png)
 
-## Edit signatures with undo
+## Copy analysis findings
+
+Run **TypeScript Structure: Copy Last Analysis Report** from the command palette or **Open Structural Tools** after **Find Dead Code** or **Advanced Nullability Analysis** completes. It copies the latest completed report, including workspace-relative paths, one-based line and column numbers, finding messages and nullability source/path/return traces. A successful analysis with no findings copies a report saying **No Findings**. You can copy while a report or another non-source editor is active.
+
+Editing a document, creating/deleting/renaming files, or running **Clear Analysis Results** invalidates the saved report. Run analysis again before copying. Other tools do not replace this report.
+
+## Edit signatures with undo and redo
 
 The Change Signature editor displays original TypeScript types and default expressions in its current-signature title and parameter choices. Displaying an original type does not force every overload to use the implementation's type.
 
-After an edit, choose **Undo Last Parameter Edit** to step back, or **Reset to Original Signature** to restore the starting draft. Reset itself can be undone. The most recent fifty editing steps are retained for that invocation. Nothing changes in source until you preview and approve the refactoring.
+After an edit, choose **Undo Last Parameter Edit** to step back, **Redo Parameter Edit** to restore an undone step, or **Reset to Original Signature** to restore the starting draft. Reset itself can be undone. Making a new edit after undo clears the redo branch. The most recent fifty editing steps are retained for that invocation. Nothing changes in source until you preview and approve the refactoring.
 
-Parameter names are checked for syntax and duplicates while typing. Default and caller-migration expressions are checked for expression syntax, and parameter positions are checked against the current list. Compiler validation and caller-effect checks still run when creating the preview.
+Parameter names are checked for syntax and duplicates while typing. Default and caller-migration expressions are checked for expression syntax, and parameter positions are checked against the current list. Compiler validation and caller-effect checks still run when creating the preview. If validation rejects a draft, choose **Continue Editing** in the error notification to return to that draft with undo/redo history intact. Dismissing the notification cancels the operation. If the project changed during editing, start again with a fresh snapshot.
 
 ![Signature editor with undo and reset](screenshots/signature-undo.png)
 
@@ -48,9 +58,10 @@ The view summarizes node counts, unreachable nodes and possible unassigned reads
 
 1. Open the [demo](demo), run **Open Structural Tools**, and search for “undefined”. The nullability tool should remain in the list.
 2. Run Find Dead Code with only deadCodeEntry.ts checked. Cancel and reopen the picker from another file in the same project: that entry selection should be restored. Run **Clear Analysis Results** and verify the structural diagnostics disappear.
-3. Analyze formatImpactLabel in impactSource.ts. Copy file paths: impactSource.test.ts should appear once despite having two affected cases. Copy the report and check that both dependency chains appear.
-4. Run Change Signature on createUser in smartRefactor.ts, remove age from the draft, then undo. Both parameters and their types should return. Add a parameter and try the reserved name “class”: validation should keep the name input open with an error. Escape cancels the draft.
+3. Analyze formatImpactLabel in impactSource.ts with **Function or Symbol at Cursor**. Search “adapter”: expect one of two results, and copy the matching report to verify only that test appears. Search “displayImpactLabel impactSource.test” to match words across the dependency chain and file path. Search a nonexistent term and click copy: the previous clipboard should survive. Clear the search and copy paths: impactSource.test.ts should appear once. Reopen analysis and verify **Last Scope** appears first.
+4. Run Change Signature on createUser in smartRefactor.ts and remove age from the draft. Preview should reject its remaining body reference. Choose **Continue Editing**: the one-parameter draft should remain. Undo restores both parameters and their types; redo removes age again. Undo, make a different edit, and verify the old redo action disappears. Add a parameter and try the reserved name “class”: validation should keep the name input open with an error. Escape cancels the draft.
 5. Run Function Data Flow on the discountPrice function name. Select discount, search for a nonexistent term, and expect zero visible cards. Clear the search to restore all cards; toggle unreachable-node visibility as needed.
 6. Run Safe Delete Symbol on createUser. The report should show its blocking exampleUser caller in the first reference group and refuse deletion.
+7. Run Advanced Nullability Analysis on nullabilityPaths.ts, then **Copy Last Analysis Report**. Paste into a scratch document and verify the unsafe read and related source traces include paths and line/column numbers. Repeat after Find Dead Code to check it replaces the report. Clear results and try copying again: expect a prompt to run analysis first. Editing source should also invalidate the report.
 
-Validation for this change includes the complete extension suite (153 passing tests), targeted lint, and live checks of the tool picker, clipboard exports, flow filtering and signature editing. See the [full testing walkthrough](README.md) for the underlying feature scenarios.
+Automated coverage includes search across fields, multiple-word matching, filtered path deduplication, signature draft recovery with undo/redo and branch replacement, and analysis report locations, traces, replacement and invalidation. Validation passed the full 155-test extension suite plus the additional report regression, targeted lint, type checks and bundling. Existing screenshots illustrate the native surfaces; fresh live UI verification was blocked by the environment’s automatic approval policy during this follow-up. See the [full testing walkthrough](README.md) for the underlying feature scenarios.

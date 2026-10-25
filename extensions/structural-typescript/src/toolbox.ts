@@ -22,10 +22,11 @@ export function registerToolbox(context: vscode.ExtensionContext, clearAnalysis:
 			{ label: vscode.l10n.t('Safe Delete File'), detail: vscode.l10n.t('Review module consumers before deleting the active file.'), command: 'structural.safeDeleteFile' },
 			{ label: vscode.l10n.t('Advanced Intention Actions'), detail: vscode.l10n.t('Open refactoring suggestions at the cursor. Also available with Ctrl+.'), command: 'structural.showIntentions' },
 			{ label: vscode.l10n.t('Results'), kind: vscode.QuickPickItemKind.Separator },
+			{ label: vscode.l10n.t('Copy Last Analysis Report'), detail: vscode.l10n.t('Copy the latest dead-code or nullability findings with source locations.'), command: 'structural.copyAnalysisReport' },
 			{ label: vscode.l10n.t('Clear Analysis Results'), detail: vscode.l10n.t('Clear structural diagnostics and dependency trees.'), command: 'structural.clearAnalysisResults' }
 		], { title: vscode.l10n.t('Structural Tools'), placeHolder: vscode.l10n.t('Search by Tool Name or What You Want to Do'), matchOnDetail: true });
 		if (!selected?.command) { return; }
-		if (selected.command !== 'structural.clearAnalysisResults') {
+		if (selected.command !== 'structural.clearAnalysisResults' && selected.command !== 'structural.copyAnalysisReport') {
 			const document = vscode.window.activeTextEditor?.document;
 			if (!document || document.uri.scheme !== 'file' || !/^(typescript|typescriptreact|javascript|javascriptreact)$/.test(document.languageId)) {
 				vscode.window.showInformationMessage(vscode.l10n.t('Open a TypeScript or JavaScript Source File to Use This Tool.')); return;

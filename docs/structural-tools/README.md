@@ -124,7 +124,7 @@ Conventional test filenames and folders, supported framework imports, literal te
 
 ## Everyday workflow improvements
 
-The [quality-of-life guide](QUALITY_OF_LIFE.md) covers the searchable tool picker, remembered entry files and move destinations, analysis cleanup, test-impact clipboard exports, signature undo/reset and validation, grouped deletion reports, and flow-view search controls. It includes screenshots and manual checks.
+The [quality-of-life guide](QUALITY_OF_LIFE.md) covers the searchable tool picker, remembered entry files and move destinations, analysis cleanup, test-impact search with matching clipboard exports, remembered impact scope and copyable dead-code/nullability reports, signature undo/redo, recovery after rejected previews and validation, grouped deletion reports, and flow-view search controls. It includes screenshots and manual checks.
 
 ## Regression verification
 
@@ -141,3 +141,7 @@ The commands use the active file's nearest TypeScript/JavaScript project, includ
 Sections 5–8 require a build or extension package containing the latest additions. An older installed preview may not list these commands. To package the current extension from the repository root, run `node scripts/package-structural-extension.mts`, install the generated VSIX from `.build/releases` using **Extensions: Install from VSIX**, and reload the window. The demo is intended for editing and analysis; Test Impact Analysis does not need a test runner to execute the fixture. Running its Node test examples separately requires an appropriate TypeScript/Node test setup.
 
 The Windows x64 user installer is unsigned. The installer path fix removes an unfiltered duplicate dependency tree that caused `MoveFile failed; code 3` at the default user install path. Packaging now checks path lengths with rename headroom. Native Inno Setup probes covered both fresh copies and overwriting existing files at representative long paths. React Structure remains accessible in Explorer when switching between JSX and other files; an unsupported active file has an empty structure tree.
+
+### Further workflow checks
+
+Follow steps 3, 4 and 7 in [Verify the improvements](QUALITY_OF_LIFE.md#verify-the-improvements) to test multiword impact search and filtered exports, signature draft recovery and redo, and analysis report copying/invalidation. These checks use the existing demo files and require no source edits to be applied.

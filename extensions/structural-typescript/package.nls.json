@@ -26,5 +26,6 @@
 	"testImpact": "Test Impact Analysis",
 	"openTools": "Open Structural Tools",
 	"showIntentions": "Show Advanced Intention Actions",
-	"clearAnalysisResults": "Clear Analysis Results"
+	"clearAnalysisResults": "Clear Analysis Results",
+	"copyAnalysisReport": "Copy Last Analysis Report"
 }
