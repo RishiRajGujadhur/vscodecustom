@@ -134,6 +134,11 @@
 				"command": "structural.findDeadCode",
 				"title": "%findDeadCode%",
 				"category": "%category%"
+			},
+			{
+				"command": "structural.advancedNullability",
+				"title": "%advancedNullability%",
+				"category": "%category%"
 			}
 		],
 		"submenus": [
@@ -197,6 +202,9 @@
 				},
 				{
 					"command": "structural.findDeadCode"
+				},
+				{
+					"command": "structural.advancedNullability"
 				}
 			],
 			"editor/context": [

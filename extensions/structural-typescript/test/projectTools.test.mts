@@ -10,6 +10,7 @@ import * as path from 'node:path';
 import { Project } from '../out/project.js';
 import { moveModuleMembers } from '../out/moduleMembers.js';
 import { findDeadCode } from '../out/deadCode.js';
+import { analyzeNullability } from '../out/nullability.js';
 
 function fixture(files: Record<string, string>, action: (project: Project, root: string) => void): void {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'project-tools-'));
@@ -60,4 +61,35 @@ test('dead code recognizes JSX component uses and preserves initializer side eff
 	'b.tsx': 'export function Used(){return <div/>;} export function Unused(){return <div/>;} console.log(<Used/>); function effect(){return 1;} export const result = effect();'
 }, (project, root) => {
 	assert.deepEqual(findDeadCode(project, [path.join(root, 'a.ts')]).map(item => [item.name, item.kind]), [['Unused', 'component'], ['result', 'export']]);
+}));
+
+
+test('nullability follows branch joins, aliases and reassignment while honoring guards', () => fixture({
+	'a.ts': 'export function inspect(flag: boolean, input: string | undefined) { let value = input; if (flag) { value = undefined; } const unsafe = value.length; if (value !== undefined) { console.log(value.length); } return value?.length ?? unsafe; }'
+}, (project) => {
+	const findings = analyzeNullability(project);
+	assert.deepEqual(findings.map(item => ({ code: item.code, sources: item.trace.filter(location => location.kind === 'source').map(location => location.text) })), [{ code: 18048, sources: ['value = input', 'input: string | undefined', 'value = undefined'] }]);
+}));
+
+test('nullability traces imported return values and reports nullable invocation', () => fixture({
+	'a.ts': 'import { lookup } from "./b"; const result = lookup(false); console.log(result.length); export function invoke(callback?: () => void) { callback(); }',
+	'b.ts': 'export function lookup(found: boolean) { if (found) { return "value"; } return undefined; }'
+}, project => {
+	const findings = analyzeNullability(project);
+	assert.deepEqual([findings.map(item => item.code), findings[0].trace.filter(location => location.kind === 'return').map(location => location.text)], [[18048, 2722], ['return "value";', 'return undefined;']]);
+}));
+
+test('analysis-only strict options work with unsaved buffers and do not change workspace configuration', () => fixture({ 'a.ts': 'export {};'}, (_project, root) => {
+	const config = path.join(root, 'tsconfig.json'); fs.writeFileSync(config, JSON.stringify({ compilerOptions: { strict: false, types: [] }, include: ['*.ts'] }));
+	const file = path.join(root, 'a.ts');
+	const project = new Project(file, new Map([[file, 'export function inspect(input?: string) { return input.length; }']]), { strictNullChecks: true, noUncheckedIndexedAccess: true });
+	try { assert.deepEqual([analyzeNullability(project).map(item => item.code), JSON.parse(fs.readFileSync(config, 'utf8')).compilerOptions.strict], [[18048], false]); } finally { project.dispose(); }
+}));
+
+
+test('nullability checks JavaScript with JSDoc in an analysis-only project', () => fixture({ 'a.ts': 'export {};' }, (_project, root) => {
+	const file = path.join(root, 'example.js');
+	fs.writeFileSync(file, '/** @param {string | undefined} input */ export function inspect(input) { return input.length; }');
+	const project = new Project(file, new Map(), { allowJs: true, checkJs: true, strictNullChecks: true });
+	try { assert.deepEqual(analyzeNullability(project).map(item => item.code), [18048]); } finally { project.dispose(); }
 }));

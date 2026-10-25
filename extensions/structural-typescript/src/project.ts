@@ -13,7 +13,7 @@ export class Project {
 	readonly checker: ts.TypeChecker;
 	readonly directory: string;
 
-	constructor(fileName: string, buffers: ReadonlyMap<string, string>) {
+	constructor(fileName: string, buffers: ReadonlyMap<string, string>, analysisOptions: ts.CompilerOptions = {}) {
 		const config = ts.findConfigFile(ts.sys.getCurrentDirectory(), ts.sys.fileExists);
 		const nearest = ts.findConfigFile(path.dirname(fileName), ts.sys.fileExists, 'tsconfig.json')
 			?? ts.findConfigFile(path.dirname(fileName), ts.sys.fileExists, 'jsconfig.json') ?? config;
@@ -27,6 +27,7 @@ export class Project {
 			options = parsed.options;
 			files = [...new Set([...parsed.fileNames, fileName])];
 		}
+		options = { ...options, ...analysisOptions };
 		const normalize = (name: string) => ts.sys.useCaseSensitiveFileNames ? name.replace(/\\/g, '/') : name.replace(/\\/g, '/').toLowerCase();
 		const content = new Map([...buffers].map(([name, value]) => [normalize(name), value]));
 		const readFile = (name: string) => content.get(normalize(name)) ?? ts.sys.readFile(name);

@@ -105,3 +105,13 @@ Open an application entry file and run **TypeScript Structure: Find Dead Code**.
 The analysis follows resolved symbols, imported aliases, barrel exports, JSX references and module dependencies. Dead recursive groups do not keep each other alive. Executable initializer uses are retained conservatively. It scans the active compiler project, excludes declarations and dependencies, and includes unsaved buffers. Named declarations are analyzed; anonymous default declarations are not separately reported. Dynamic imports with computed paths, reflection, plugin registration, framework discovery and external package consumers require manual review. No code is deleted. Results clear when files change; rerun the command for a fresh report.
 
 ![Dead code candidates in the Problems panel](../../docs/structural-tools/screenshots/find-dead-code.png)
+
+## Advanced Nullability Analysis
+
+Open a TypeScript/JavaScript file and run **TypeScript Structure: Advanced Nullability Analysis**. Expand a warning in **Problems** to inspect **Possible Value Source**, **Possible Return Value** and **Path Condition** links. Click a link to navigate to the origin or condition. In [nullabilityPaths.ts](../../docs/structural-tools/demo/nullabilityPaths.ts), `label.length` is unsafe after `lookupLabel` can return `undefined`; the access inside `if (label !== undefined)` and the optional chain are guarded.
+
+The analysis uses TypeScript control-flow narrowing through branches, assignments, aliases and function return types. An isolated compiler project enables strict null checks, JavaScript checking and unchecked-index checks without changing your configuration. It includes unsaved buffers and reports unsafe accesses, nullable calls and null-related assignment/argument errors across the active project. Existing TypeScript diagnostics may appear alongside the warnings with source traces. Results clear when source files change.
+
+Traces show potential origins, with up to five recursive hops and twenty locations per warning. Earlier assignments and function returns are candidates; the trace does not prove that each reaches the failing use. `any`, explicit non-null assertions, inaccurate declarations, external code and runtime mutation can hide hazards. Call-site-specific parameter tracing and exhaustive symbolic execution are outside this analysis.
+
+![Nullability warning with navigable return values and branch condition](../../docs/structural-tools/screenshots/advanced-nullability.png)
