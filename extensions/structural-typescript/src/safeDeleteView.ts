@@ -6,7 +6,8 @@ import * as vscode from 'vscode';
 import { Project } from './project';
 import { safeDelete, safeDeleteFile, DeleteRisk } from './safeDelete';
 import { Change } from './refactor';
-import { projectSnapshot, sameSnapshot } from './snapshot';
+import { projectSnapshot, sameSnapshot, snapshotText } from './snapshot';
+import { documentOffset } from './documentEdits';
 
 const riskText: Record<DeleteRisk, () => string> = {
 	external: () => vscode.l10n.t('External Consumers or Entry Points Cannot Be Ruled Out.'),
@@ -22,7 +23,10 @@ export function registerSafeDelete(withProject: <T>(document: vscode.TextDocumen
 			const lines = [`# ${vscode.l10n.t('Safe Delete Review')}`, '', `## ${escaped(plan.name)}`, '', ...plan.risks.map(risk => `- ${escaped(riskText[risk]())}`), ''];
 			for (const usage of plan.usages) {
 				const document = await vscode.workspace.openTextDocument(vscode.Uri.file(usage.fileName));
-				const position = document.positionAt(usage.start);
+				const original = snapshotText(snapshot, usage.fileName);
+				const offset = original === undefined ? undefined : documentOffset(original, document.getText(), usage.start);
+				if (offset === undefined) { throw new Error(vscode.l10n.t('The Project Changed During Review. Run Safe Delete Again.')); }
+				const position = document.positionAt(offset);
 				lines.push(`- ${usage.kind === 'blocking' ? vscode.l10n.t('Blocking') : vscode.l10n.t('Removable Import')}: [${escaped(vscode.workspace.asRelativePath(document.uri))}:${position.line + 1}](${document.uri.toString()}#L${position.line + 1},${position.character + 1})`);
 			}
 			if (!plan.usages.length) { lines.push(vscode.l10n.t('No Known References in This Compiler Project. This Is Not Proof That External Consumers Do Not Exist.')); }

@@ -5,7 +5,8 @@
 import * as vscode from 'vscode';
 import { Project } from './project';
 import { analyzeTestImpact, ImpactTarget } from './testImpact';
-import { projectSnapshot, sameSnapshot } from './snapshot';
+import { projectSnapshot, sameSnapshot, snapshotText } from './snapshot';
+import { documentOffset } from './documentEdits';
 
 interface GitChange { readonly uri: vscode.Uri; readonly originalUri: vscode.Uri; readonly renameUri: vscode.Uri | undefined }
 interface ImpactRepository {
@@ -45,14 +46,17 @@ export function registerTestImpact(command: (id: string, action: (editor: vscode
 		if (result.excludedFiles.length) { vscode.window.showWarningMessage(vscode.l10n.t('{0} Changed Files Are Outside the Active Compiler Project or No Longer Exist. Their Impact Was Not Analyzed.', result.excludedFiles.length)); }
 		if (!result.tests.length) { vscode.window.showInformationMessage(vscode.l10n.t('No Statically Linked Tests Found in This Compiler Project. Dynamic and External Tests May Still Be Affected.')); return; }
 		const test = await vscode.window.showQuickPick(result.tests.map(test => ({
-			label: test.name,
+			label: test.kind === 'file' ? vscode.l10n.t('Test File: {0}', test.name) : test.name,
 			description: vscode.workspace.asRelativePath(test.fileName),
 			detail: test.chain.map(step => step.name).join(' → '), test
 		})), { placeHolder: vscode.l10n.t('{0} Potentially Affected Tests — Select One to Open', result.tests.length), matchOnDescription: true, matchOnDetail: true });
 		if (!test) { return; }
 		if (!run(document, project => sameSnapshot(project, snapshot))) { throw new Error(vscode.l10n.t('The Project Changed. Run Test Impact Analysis Again.')); }
 		const source = await vscode.workspace.openTextDocument(vscode.Uri.file(test.test.fileName));
-		const position = source.positionAt(test.test.start);
+		const original = snapshotText(snapshot, test.test.fileName);
+		const mappedOffset = original === undefined ? undefined : documentOffset(original, source.getText(), test.test.start);
+		if (mappedOffset === undefined) { throw new Error(vscode.l10n.t('The Source Changed. Run Test Impact Analysis Again.')); }
+		const position = source.positionAt(mappedOffset);
 		await vscode.window.showTextDocument(source, { selection: new vscode.Range(position, position) });
 	});
 }

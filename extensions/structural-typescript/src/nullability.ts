@@ -14,7 +14,7 @@ export function analyzeNullability(project: Project): NullabilityFinding[] {
 	if (!(options.strictNullChecks ?? options.strict)) { throw new Error('strictNullChecks'); }
 	const files = project.program.getSourceFiles().filter(file => !file.isDeclarationFile && !project.program.isSourceFileFromExternalLibrary(file));
 	const codes = new Set([2531, 2532, 2533, 2721, 2722, 18047, 18048, 18049]);
-	return files.flatMap(file => project.program.getSemanticDiagnostics(file).filter(diagnostic => codes.has(diagnostic.code) || [2322, 2345, 18050].includes(diagnostic.code) && /null|undefined/.test(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))).map(diagnostic => {
+	return files.flatMap(file => project.program.getSemanticDiagnostics(file).filter(diagnostic => codes.has(diagnostic.code) || [2322, 2345, 18050].includes(diagnostic.code) && /(?:[Tt]ype|value) '(?:null|undefined)'/.test(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))).map(diagnostic => {
 		const start = diagnostic.start ?? 0;
 		let node = nodeAt(file, start);
 		while (node.parent && node.end < start + (diagnostic.length ?? 0)) { node = node.parent; }

@@ -14,16 +14,17 @@ export class Project {
 	readonly directory: string;
 
 	constructor(fileName: string, buffers: ReadonlyMap<string, string>, analysisOptions: ts.CompilerOptions = {}) {
-		const config = ts.findConfigFile(ts.sys.getCurrentDirectory(), ts.sys.fileExists);
-		const nearest = ts.findConfigFile(path.dirname(fileName), ts.sys.fileExists, 'tsconfig.json')
-			?? ts.findConfigFile(path.dirname(fileName), ts.sys.fileExists, 'jsconfig.json') ?? config;
+		const nearest = ['tsconfig.json', 'jsconfig.json']
+			.map(name => ts.findConfigFile(path.dirname(fileName), ts.sys.fileExists, name))
+			.filter((name): name is string => name !== undefined)
+			.sort((a, b) => path.dirname(b).length - path.dirname(a).length)[0];
 		this.directory = nearest ? path.dirname(nearest) : path.dirname(fileName);
 		let options: ts.CompilerOptions = { allowJs: true, checkJs: true, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext };
 		let files = [fileName];
 		if (nearest) {
 			const read = ts.readConfigFile(nearest, ts.sys.readFile);
 			if (read.error) { throw new Error(ts.flattenDiagnosticMessageText(read.error.messageText, '\n')); }
-			const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, path.dirname(nearest));
+			const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, path.dirname(nearest), undefined, nearest);
 			options = parsed.options;
 			files = [...new Set([...parsed.fileNames, fileName])];
 		}
@@ -87,4 +88,15 @@ export function isReference(node: ts.Identifier): boolean {
 		|| (ts.isJsxClosingElement(parent))) { return false; }
 	if ((ts.isJsxOpeningElement(parent) || ts.isJsxSelfClosingElement(parent)) && parent.tagName === node && /^[a-z]/.test(node.text)) { return false; }
 	return true;
+}
+
+/** Runtime lexical bindings exclude ambient globals that may invoke host accessors. */
+export function isLexicalValue(project: Project, node: ts.Identifier): boolean {
+	return !!resolvedSymbol(project, node)?.declarations?.some(declaration => {
+		if (declaration.getSourceFile().isDeclarationFile) { return false; }
+		for (let scope: ts.Node | undefined = declaration; scope && !ts.isSourceFile(scope); scope = scope.parent) {
+			if (ts.canHaveModifiers(scope) && ts.getModifiers(scope)?.some(modifier => modifier.kind === ts.SyntaxKind.DeclareKeyword)) { return false; }
+		}
+		return ts.isParameter(declaration) || ts.isVariableDeclaration(declaration) && (ts.isExternalModule(declaration.getSourceFile()) || !!ts.findAncestor(declaration, ts.isFunctionLike));
+	});
 }

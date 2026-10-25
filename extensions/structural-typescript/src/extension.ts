@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
+import { documentChange, documentOffset } from './documentEdits';
 import { registerProjectTools } from './projectToolsView';
 import { Project } from './project';
 import { Change, extractComponent, rename } from './refactor';
@@ -31,8 +32,9 @@ async function workspaceEdit(changes: readonly Change[]): Promise<vscode.Workspa
 	for (const change of changes) {
 		const uri = vscode.Uri.file(change.fileName);
 		const document = await vscode.workspace.openTextDocument(uri);
-		if (change.documentText !== undefined && change.documentText !== document.getText()) { throw new Error(vscode.l10n.t('A Source File Changed During Analysis. Run the Refactoring Again.')); }
-		edit.replace(uri, new vscode.Range(document.positionAt(change.start), document.positionAt(change.start + change.length)), change.text, { needsConfirmation: true, label: vscode.l10n.t('Review Structural Refactoring') });
+		const current = documentChange(change, document.getText());
+		if (!current) { throw new Error(vscode.l10n.t('A Source File Changed During Analysis. Run the Refactoring Again.')); }
+		edit.replace(uri, new vscode.Range(document.positionAt(current.start), document.positionAt(current.start + current.length)), current.text, { needsConfirmation: true, label: vscode.l10n.t('Review Structural Refactoring') });
 	}
 	return edit;
 }
@@ -52,7 +54,7 @@ export async function preview(changes: readonly Change[], files: readonly { file
 	for (const file of files) {
 		const uri = vscode.Uri.file(file.fileName);
 		const document = await vscode.workspace.openTextDocument(uri);
-		if (document.getText() !== file.documentText) { throw new Error(vscode.l10n.t('A Source File Changed During Analysis. Run the Refactoring Again.')); }
+		if (documentOffset(file.documentText, document.getText(), file.documentText.length) === undefined) { throw new Error(vscode.l10n.t('A Source File Changed During Analysis. Run the Refactoring Again.')); }
 		edit.deleteFile(uri, { recursive: false }, { needsConfirmation: true, label: vscode.l10n.t('Review File Deletion') });
 	}
 	await vscode.workspace.applyEdit(edit, { isRefactoring: true });

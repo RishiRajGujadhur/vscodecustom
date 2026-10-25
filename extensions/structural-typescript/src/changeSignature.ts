@@ -82,9 +82,10 @@ function typeOnly(node: ts.Node): boolean {
 /** Rewrites a complete family of supported declarations and resolved, non-escaping direct calls. */
 export function changeSignature(project: Project, fileName: string, offset: number, parameters: readonly SignatureParameter[]): { changes: readonly Change[]; signature: string; callers: number } {
 	const declarations = target(project, fileName, offset), base = declarations[0];
-	if (!/\.tsx?$/i.test(fileName) && !project.program.getCompilerOptions().checkJs) { throw new SignatureError('parameters'); }
+	if (!/\.(?:[cm]?ts|tsx)$/i.test(fileName) && !project.program.getCompilerOptions().checkJs) { throw new SignatureError('parameters'); }
 	const indices = parameters.flatMap(parameter => parameter.originalIndex === undefined ? [] : [parameter.originalIndex]);
 	if (parameters.length > 24 || new Set(parameters.map(parameter => parameter.name)).size !== parameters.length || new Set(indices).size !== indices.length || indices.some(index => !Number.isInteger(index) || index < 0 || index >= base.parameters.length) || parameters.some(parameter => !/^[$A-Z_a-z][$\w]*$/.test(parameter.name) || parameter.defaultValue !== undefined && parameter.defaultValue !== null && !validExpression(parameter.defaultValue) || parameter.migrationValue !== undefined && !validExpression(parameter.migrationValue))) { throw new SignatureError('syntax'); }
+	if (base.parameters.some((parameter, index) => !indices.includes(index) && parameter.initializer && !(ts.isStringLiteralLike(parameter.initializer) || ts.isNumericLiteral(parameter.initializer) || ts.isArrowFunction(parameter.initializer) || ts.isFunctionExpression(parameter.initializer) || [ts.SyntaxKind.TrueKeyword, ts.SyntaxKind.FalseKeyword, ts.SyntaxKind.NullKeyword].includes(parameter.initializer.kind)))) { throw new SignatureError('effects'); }
 	const changes: Change[] = [], renames: Change[] = [];
 	for (const declaration of declarations) {
 		for (const parameter of parameters) {
@@ -114,7 +115,7 @@ export function changeSignature(project: Project, fileName: string, offset: numb
 		return text;
 	};
 	for (const declaration of declarations) {
-		const typed = /\.tsx?$/i.test(declaration.getSourceFile().fileName);
+		const typed = /\.(?:[cm]?ts|tsx)$/i.test(declaration.getSourceFile().fileName);
 		const rendered = parameters.map(parameter => {
 			const original = parameter.originalIndex === undefined ? undefined : declaration.parameters[parameter.originalIndex];
 			const type = parameter.type ?? (original?.type ? renamedText(original.type) : undefined);

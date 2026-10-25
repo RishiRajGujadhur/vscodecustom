@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as ts from 'typescript';
-import { Project, nodeAt, resolvedSymbol, walk } from './project';
+import { Project, isLexicalValue, nodeAt, resolvedSymbol, walk } from './project';
 import { Change } from './refactor';
 import { validateChanges } from './globalRefactor';
 
@@ -27,7 +27,7 @@ function primitive(project: Project, expression: ts.Expression): boolean {
 }
 /** Only expressions without getters, coercion of objects, calls, or writes. */
 function pure(project: Project, expression: ts.Expression): boolean {
-	if (ts.isIdentifier(expression)) { return primitive(project, expression); }
+	if (ts.isIdentifier(expression)) { return isLexicalValue(project, expression) && primitive(project, expression); }
 	if (ts.isStringLiteral(expression) || ts.isNumericLiteral(expression) || [ts.SyntaxKind.TrueKeyword, ts.SyntaxKind.FalseKeyword, ts.SyntaxKind.NullKeyword].includes(expression.kind)) { return true; }
 	if (ts.isParenthesizedExpression(expression)) { return pure(project, expression.expression); }
 	return ts.isBinaryExpression(expression) && expression.operatorToken.kind < ts.SyntaxKind.FirstAssignment && primitive(project, expression.left) && primitive(project, expression.right) && pure(project, expression.left) && pure(project, expression.right);
@@ -118,7 +118,7 @@ export const intentionRules: readonly IntentionRule[] = [
 		return [edit(source, node, `if (${receiver.text} != null) { ${node.getText()} }`)];
 	}),
 	rule('guardClause', ({ source, node }) => {
-		if (!ts.isIfStatement(node) || !node.elseStatement || !returned(node.thenStatement) || !returned(node.elseStatement)) { return; }
+		if (!ts.isIfStatement(node) || !ts.isBlock(node.parent) || !node.elseStatement || !returned(node.thenStatement) || !returned(node.elseStatement)) { return; }
 		return [edit(source, node, `if (${node.expression.getText()}) { return ${returned(node.thenStatement)!.getText()}; }\nreturn ${returned(node.elseStatement)!.getText()};`)];
 	}),
 	rule('stringTemplate', ({ project, source, node }) => {

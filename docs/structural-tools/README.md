@@ -122,6 +122,14 @@ Keep source and tests in the active compiler project. If an application's config
 
 Conventional test filenames and folders, supported framework imports, literal test titles, imported aliases, suite titles and common `.each(...)` registrations are recognized. Parameterized registrations appear once. Shared setup hooks and test-file initialization conservatively affect all recognized cases in that file. Custom registration wrappers, computed imports, mocks and runtime global effects can require additional tests or broader module analysis; an empty result does not establish that no tests are affected.
 
+## Regression verification
+
+The [25 October code review](CODE_REVIEW.md) records the edge cases fixed across all eight structural feature areas. Run `npm run test --prefix extensions/structural-typescript` from the repository root to compile the extension and execute the regression suite.
+
+To check dynamic test discovery, add `test("dynamic " + Date.now(), () => formatImpactLabel("ready"));` to `impactSource.test.ts`. Symbol impact for `formatImpactLabel` should retain the two named cases and add a **Test File: impactSource.test.ts** candidate. This file entry covers the computed title; it does not execute or expand the generated test name. Restore the fixture afterward.
+
+Move previews, deletion previews and analysis navigation must still reject real source changes made during review. Files with mixed LF/CRLF endings may be normalized when opened in the editor; that normalization alone should preserve the correct ranges and should not be reported as a content change.
+
 ## Scope and installation notes
 
 The commands use the active file's nearest TypeScript/JavaScript project, including unsaved documents. Unsupported or ambiguous transformations stop with an explanation. Computed dynamic imports, runtime aliasing, reflection, and unrelated project boundaries are not fully modeled. See the [extension reference](../../extensions/structural-typescript/README.md) for the precise restrictions.

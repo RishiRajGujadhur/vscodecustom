@@ -64,7 +64,7 @@ export function safeDelete(project: Project, fileName: string, offset: number): 
 			changes.push(list.declarations.length === 1 ? replacement(list.parent, '') : replacement(list, `${list.flags & ts.NodeFlags.Const ? 'const' : list.flags & ts.NodeFlags.Let ? 'let' : 'var'} ${list.declarations.filter(other => other !== declaration).map(other => other.getText()).join(', ')}`));
 		} else if (ts.isImportSpecifier(declaration) || ts.isImportClause(declaration) || ts.isNamespaceImport(declaration)) { changes.push(importEdit(declaration, preserveEvaluation)); }
 		else if (ts.isFunctionDeclaration(declaration) || ts.isClassDeclaration(declaration) || ts.isInterfaceDeclaration(declaration) || ts.isTypeAliasDeclaration(declaration) || ts.isMethodDeclaration(declaration) || ts.isPropertyDeclaration(declaration) || ts.isMethodSignature(declaration) || ts.isPropertySignature(declaration) || ts.isGetAccessorDeclaration(declaration) || ts.isSetAccessorDeclaration(declaration)) {
-			if (ts.canHaveDecorators(declaration) && ts.getDecorators(declaration)?.length || ts.isClassDeclaration(declaration) && (declaration.heritageClauses?.length || declaration.members.some(member => ts.isClassStaticBlockDeclaration(member) || ts.isPropertyDeclaration(member) && !!member.initializer))) { risks.add('sideEffects'); }
+			if (ts.canHaveDecorators(declaration) && ts.getDecorators(declaration)?.length || ts.isClassDeclaration(declaration) && (declaration.heritageClauses?.length || declaration.members.some(member => ts.isClassStaticBlockDeclaration(member) || ts.isPropertyDeclaration(member) && !!member.initializer || ts.canHaveDecorators(member) && !!ts.getDecorators(member)?.length || !!ts.getNameOfDeclaration(member) && ts.isComputedPropertyName(ts.getNameOfDeclaration(member)!)))) { risks.add('sideEffects'); }
 			if (ts.isPropertyDeclaration(declaration) && declaration.initializer && !effectFree(declaration.initializer)) { risks.add('sideEffects'); }
 			if ((ts.isMethodDeclaration(declaration) || ts.isPropertyDeclaration(declaration) || ts.isMethodSignature(declaration) || ts.isPropertySignature(declaration) || ts.isGetAccessorDeclaration(declaration) || ts.isSetAccessorDeclaration(declaration))) {
 				if (!ts.isPrivateIdentifier(declaration.name)) { risks.add('dynamic'); }
@@ -87,7 +87,7 @@ export function safeDelete(project: Project, fileName: string, offset: number): 
 			for (const reference of group.references) {
 				if (contains(reference.fileName, reference.textSpan.start)) { continue; }
 				const file = project.program.getSourceFile(reference.fileName);
-				if (!file || file.isDeclarationFile) { risks.add('external'); continue; }
+				if (!file || project.program.isSourceFileDefaultLibrary(file) || project.program.isSourceFileFromExternalLibrary(file)) { risks.add('external'); continue; }
 				const node = nodeAt(file, reference.textSpan.start);
 				if (importAlias && project.checker.getSymbolAtLocation(node) !== symbol) { continue; }
 				const key = `${reference.fileName}:${reference.textSpan.start}`;
@@ -125,7 +125,7 @@ export function safeDeleteFile(project: Project, fileName: string): DeletePlan {
 	const usages: DeleteUsage[] = [];
 	const target = project.checker.getSymbolAtLocation(source);
 	for (const file of project.program.getSourceFiles()) {
-		if (file === source || file.isDeclarationFile || project.program.isSourceFileFromExternalLibrary(file)) { continue; }
+		if (file === source || project.program.isSourceFileDefaultLibrary(file) || project.program.isSourceFileFromExternalLibrary(file)) { continue; }
 		walk(file, node => {
 			if (ts.isStringLiteralLike(node)) {
 				const resolved = ts.resolveModuleName(node.text, file.fileName, project.program.getCompilerOptions(), ts.sys).resolvedModule?.resolvedFileName;

@@ -35,6 +35,7 @@ export interface FunctionFlow {
 export class UnsupportedFlow extends Error { }
 const unknown = '?';
 const unassigned = '<unassigned>';
+function isAssignment(kind: ts.SyntaxKind): boolean { return kind >= ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment; }
 function equalSet<T>(a: ReadonlySet<T>, b: ReadonlySet<T>): boolean { return a.size === b.size && [...a].every(value => b.has(value)); }
 function equalMap<T>(a: ReadonlyMap<string, ReadonlySet<T>>, b: ReadonlyMap<string, ReadonlySet<T>>): boolean { return a.size === b.size && [...a].every(([key, value]) => b.has(key) && equalSet(value, b.get(key)!)); }
 function merge<T>(maps: readonly ReadonlyMap<string, ReadonlySet<T>>[]): Map<string, Set<T>> {
@@ -110,14 +111,15 @@ export function analyzeFunction(project: Project, fileName: string, offset: numb
 		if (declaration) { const key = keyOf(declaration.name); if (key && expression) { writes = [key]; } }
 		else if (expression && ts.isBinaryExpression(expression) && expression.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isIdentifier(expression.left)) {
 			const key = keyOf(expression.left); if (key) { writes = [key]; uses = reads(expression.right); expression = expression.right; }
-		} else if (expression && ts.isBinaryExpression(expression) && expression.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && ts.isIdentifier(expression.left)) {
+		} else if (expression && ts.isBinaryExpression(expression) && isAssignment(expression.operatorToken.kind) && ts.isIdentifier(expression.left)) {
 			const key = keyOf(expression.left); if (key) { writes = [key]; }
 		} else if (expression && (ts.isPostfixUnaryExpression(expression) || ts.isPrefixUnaryExpression(expression)) && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(expression.operator)) {
 			const key = keyOf(expression.operand); if (key) { writes = [key]; }
 		}
 		visit(expression ?? syntax, child => {
+			if (ts.isBinaryExpression(child) && isAssignment(child.operatorToken.kind) && (ts.isArrayLiteralExpression(child.left) || ts.isObjectLiteralExpression(child.left))) { throw new UnsupportedFlow('destructuring write'); }
 			if (ts.isBinaryExpression(child) && [ts.SyntaxKind.BarBarEqualsToken, ts.SyntaxKind.AmpersandAmpersandEqualsToken, ts.SyntaxKind.QuestionQuestionEqualsToken].includes(child.operatorToken.kind)) { throw new UnsupportedFlow('conditional write'); }
-			if (ts.isBinaryExpression(child) && child.operatorToken.kind >= ts.SyntaxKind.FirstAssignment || (ts.isPostfixUnaryExpression(child) || ts.isPrefixUnaryExpression(child)) && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(child.operator)) {
+			if (ts.isBinaryExpression(child) && isAssignment(child.operatorToken.kind) || (ts.isPostfixUnaryExpression(child) || ts.isPrefixUnaryExpression(child)) && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(child.operator)) {
 				if (child !== expression) { throw new UnsupportedFlow('nested write'); }
 			}
 		});
@@ -126,13 +128,15 @@ export function analyzeFunction(project: Project, fileName: string, offset: numb
 		// Exceptional edges carry incoming facts: a failed initializer has not assigned its target.
 		if (expression) { nodes[id].edges.push({ target: exceptionalExit, exceptional: true }); }
 		visit(syntax, child => {
-			if (ts.isBinaryExpression(child) && child.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && ts.isPropertyAccessExpression(child.left)) { mutations.push({ start: child.getStart(), text: child.getText() }); }
+			if (ts.isBinaryExpression(child) && isAssignment(child.operatorToken.kind) && (ts.isPropertyAccessExpression(child.left) || ts.isElementAccessExpression(child.left))) { mutations.push({ start: child.getStart(), text: child.getText() }); }
+			if (ts.isDeleteExpression(child) && (ts.isPropertyAccessExpression(child.expression) || ts.isElementAccessExpression(child.expression))) { mutations.push({ start: child.getStart(), text: child.getText() }); }
+			if ((ts.isPrefixUnaryExpression(child) || ts.isPostfixUnaryExpression(child)) && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(child.operator) && (ts.isPropertyAccessExpression(child.operand) || ts.isElementAccessExpression(child.operand))) { mutations.push({ start: child.getStart(), text: child.getText() }); }
 			if (ts.isCallExpression(child) && ts.isPropertyAccessExpression(child.expression) && ['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse', 'set', 'delete', 'clear'].includes(child.expression.name.text)) { mutations.push({ start: child.getStart(), text: child.getText() }); }
 		});
 		return [id];
 	};
 	const conditionNode = (expression: ts.Expression | undefined, syntax: ts.Node, incoming: number[]): number => {
-		if (expression) { visit(expression, child => { if (ts.isBinaryExpression(child) && child.operatorToken.kind >= ts.SyntaxKind.FirstAssignment || ts.isPostfixUnaryExpression(child) || ts.isPrefixUnaryExpression(child) && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(child.operator)) { throw new UnsupportedFlow('condition write'); } }); }
+		if (expression) { visit(expression, child => { if (ts.isBinaryExpression(child) && isAssignment(child.operatorToken.kind) || ts.isPostfixUnaryExpression(child) || ts.isPrefixUnaryExpression(child) && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(child.operator)) { throw new UnsupportedFlow('condition write'); } }); }
 		const id = create(expression?.getText() ?? 'true', syntax, reads(expression), [], undefined, expression);
 		connect(incoming, id);
 		if (expression) { nodes[id].edges.push({ target: exceptionalExit, exceptional: true }); }

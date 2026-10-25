@@ -5,9 +5,10 @@
 import * as ts from 'typescript';
 import * as path from 'node:path';
 import { Project, nodeAt, resolvedSymbol, walk } from './project';
+import { canonicalFileName, projectModuleGraph } from './projectGraph';
 
 export interface ImpactTarget { readonly fileName: string; readonly offset?: number }
-export interface ImpactStep { readonly fileName: string; readonly start: number; readonly name: string }
+export interface ImpactStep { readonly fileName: string; readonly start: number; readonly name: string; readonly kind?: 'file' }
 export interface ImpactedTest extends ImpactStep { readonly chain: readonly ImpactStep[] }
 export interface TestImpactResult { readonly tests: readonly ImpactedTest[]; readonly excludedFiles: readonly string[] }
 
@@ -18,36 +19,44 @@ function ownerSymbol(project: Project, node: ts.Node): ts.Symbol | undefined {
 	return undefined;
 }
 
-function canonical(fileName: string): string {
-	const absolute = path.resolve(fileName);
-	return ts.sys.useCaseSensitiveFileNames ? absolute : absolute.toLowerCase();
-}
-
 /** Finds static test cases through reverse symbol references or conservative module dependencies. */
 export function analyzeTestImpact(project: Project, targets: readonly ImpactTarget[]): TestImpactResult {
-	const files = project.program.getSourceFiles().filter(file => !file.isDeclarationFile && !project.program.isSourceFileFromExternalLibrary(file));
-	const byName = new Map(files.map(file => [canonical(file.fileName), file]));
+	const { files, dependencies } = projectModuleGraph(project);
+	const byName = new Map(files.map(file => [canonicalFileName(file.fileName), file]));
 	const registrations = new Map<ts.CallExpression, ImpactStep>();
 	const testsByFile = new Map<ts.SourceFile, ImpactStep[]>();
 	const callsByFile = new Map<ts.SourceFile, ts.CallExpression[]>();
 	for (const file of files) {
 		let testFile = /(?:^|[\\/])(?:__tests__|tests?)[\\/]|[.-](?:test|spec)\.[cm]?[jt]sx?$/.test(file.fileName);
+		const importedBindings = new Set<ts.Declaration>();
+		const namespaces = new Set<string>();
 		const aliases = new Map([['test', 'test'], ['it', 'test'], ['describe', 'suite'], ['suite', 'suite']]);
 		for (const statement of file.statements) {
 			if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) || !/^(node:test|vitest|@jest\/globals|@playwright\/test|mocha)$/.test(statement.moduleSpecifier.text)) { continue; }
 			testFile = true;
 			const bindings = statement.importClause?.namedBindings;
 			if (bindings && ts.isNamedImports(bindings)) {
-				for (const element of bindings.elements) { const kind = aliases.get((element.propertyName ?? element.name).text); if (kind) { aliases.set(element.name.text, kind); } }
+				for (const element of bindings.elements) { const kind = aliases.get((element.propertyName ?? element.name).text); if (kind) { aliases.set(element.name.text, kind); importedBindings.add(element); } }
 			}
-			if (statement.importClause?.name && statement.moduleSpecifier.text === 'node:test') { aliases.set(statement.importClause.name.text, 'test'); }
+			if (bindings && ts.isNamespaceImport(bindings)) { namespaces.add(bindings.name.text); importedBindings.add(bindings); }
+			if (statement.importClause?.name && statement.moduleSpecifier.text === 'node:test') { aliases.set(statement.importClause.name.text, 'test'); importedBindings.add(statement.importClause); }
 		}
 		const registrationKind = (expression: ts.Expression): string | undefined => {
-			if (ts.isIdentifier(expression)) { return aliases.get(expression.text); }
+			if (ts.isIdentifier(expression)) {
+				const symbol = project.checker.getSymbolAtLocation(expression);
+				if (symbol?.declarations?.some(declaration => !declaration.getSourceFile().isDeclarationFile && !importedBindings.has(declaration))) { return undefined; }
+				return aliases.get(expression.text);
+			}
 			if (ts.isCallExpression(expression)) { return registrationKind(expression.expression); }
 			if (ts.isPropertyAccessExpression(expression)) {
 				if (['only', 'skip', 'todo', 'each', 'concurrent', 'serial'].includes(expression.name.text)) { return registrationKind(expression.expression); }
-				return aliases.get(expression.name.text);
+				if (ts.isIdentifier(expression.expression) && namespaces.has(expression.expression.text) && project.checker.getSymbolAtLocation(expression.expression)?.declarations?.every(declaration => importedBindings.has(declaration)) || registrationKind(expression.expression)) { return aliases.get(expression.name.text); }
+				if (expression.name.text === 'test' && ts.isIdentifier(expression.expression)) {
+					for (const declaration of project.checker.getSymbolAtLocation(expression.expression)?.declarations ?? []) {
+						if (ts.isParameter(declaration) && ts.isFunctionLike(declaration.parent) && declaration.parent.parameters[0] === declaration && ts.isCallExpression(declaration.parent.parent) && registrationKind(declaration.parent.parent.expression) === 'test') { return 'test'; }
+					}
+				}
+				return undefined;
 			}
 			return undefined;
 		};
@@ -55,7 +64,12 @@ export function analyzeTestImpact(project: Project, targets: readonly ImpactTarg
 		const cases: ImpactStep[] = [];
 		const calls: ts.CallExpression[] = []; callsByFile.set(file, calls);
 		walk(file, node => {
-			if (!testFile || !ts.isCallExpression(node) || registrationKind(node.expression) !== 'test' || title(node) === undefined) { return; }
+			if (!testFile || !ts.isCallExpression(node) || registrationKind(node.expression) !== 'test' || ts.isCallExpression(node.parent) && node.parent.expression === node) { return; }
+			if (title(node) === undefined) {
+				let fallback = cases.find(test => test.kind === 'file');
+				if (!fallback) { fallback = { fileName: file.fileName, start: 0, name: path.basename(file.fileName), kind: 'file' }; cases.push(fallback); }
+				registrations.set(node, fallback); calls.push(node); return;
+			}
 			const names = [title(node)!];
 			for (let parent = node.parent; parent; parent = parent.parent) {
 				if (ts.isCallExpression(parent) && registrationKind(parent.expression) === 'suite' && title(parent) !== undefined) { names.unshift(title(parent)!); }
@@ -63,23 +77,18 @@ export function analyzeTestImpact(project: Project, targets: readonly ImpactTarg
 			const step = { fileName: file.fileName, start: node.getStart(), name: names.join(' › ') };
 			registrations.set(node, step); cases.push(step); calls.push(node);
 		});
-		if (cases.length || /(?:^|[\\/])(?:__tests__|tests?)[\\/]|[.-](?:test|spec)\.[cm]?[jt]sx?$/.test(file.fileName)) {
-			testsByFile.set(file, cases.length ? cases : [{ fileName: file.fileName, start: 0, name: path.basename(file.fileName) }]);
+		if (testFile) {
+			testsByFile.set(file, cases.length ? cases : [{ fileName: file.fileName, start: 0, name: path.basename(file.fileName), kind: 'file' }]);
 		}
 	}
 	const moduleUsers = new Map<ts.SourceFile, Set<ts.SourceFile>>();
+	for (const [file, imports] of dependencies) {
+		for (const dependency of imports) { const users = moduleUsers.get(dependency) ?? new Set<ts.SourceFile>(); users.add(file); moduleUsers.set(dependency, users); }
+	}
 	const symbolUsers = new Map<ts.Symbol, Set<ts.Symbol>>();
 	const testUsers = new Map<ts.Symbol, Set<ts.CallExpression>>();
 	for (const file of files) {
 		walk(file, node => {
-			if (ts.isStringLiteralLike(node)) {
-				let dependency = project.checker.getSymbolAtLocation(node)?.declarations?.find(ts.isSourceFile);
-				if (!dependency && ts.isCallExpression(node.parent) && ts.isIdentifier(node.parent.expression) && node.parent.expression.text === 'require') {
-					const resolved = ts.resolveModuleName(node.text, file.fileName, project.program.getCompilerOptions(), ts.sys).resolvedModule;
-					dependency = resolved ? byName.get(canonical(resolved.resolvedFileName)) : undefined;
-				}
-				if (dependency && byName.has(canonical(dependency.fileName))) { const users = moduleUsers.get(dependency) ?? new Set<ts.SourceFile>(); users.add(file); moduleUsers.set(dependency, users); }
-			}
 			if (!ts.isIdentifier(node) || ts.isImportSpecifier(node.parent) || ts.isImportClause(node.parent) || ts.isNamespaceImport(node.parent) || ts.isExportSpecifier(node.parent)) { return; }
 			const symbol = resolvedSymbol(project, node);
 			if (!symbol) { return; }
@@ -104,10 +113,10 @@ export function analyzeTestImpact(project: Project, targets: readonly ImpactTarg
 		});
 	}
 	const found = new Map<string, ImpactedTest>();
-	const add = (test: ImpactStep, chain: readonly ImpactStep[]) => found.set(`${canonical(test.fileName)}:${test.start}`, { ...test, chain });
+	const add = (test: ImpactStep, chain: readonly ImpactStep[]) => found.set(`${canonicalFileName(test.fileName)}:${test.start}:${test.kind ?? 'case'}`, { ...test, chain });
 	const excludedFiles: string[] = [];
 	for (const target of targets) {
-		const source = byName.get(canonical(target.fileName));
+		const source = byName.get(canonicalFileName(target.fileName));
 		if (!source) { excludedFiles.push(target.fileName); continue; }
 		if (target.offset === undefined) {
 			const chains = new Map<ts.SourceFile, readonly ImpactStep[]>([[source, [{ fileName: source.fileName, start: 0, name: path.basename(source.fileName) }]]]);

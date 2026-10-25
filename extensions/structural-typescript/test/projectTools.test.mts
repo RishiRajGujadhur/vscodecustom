@@ -7,11 +7,14 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import * as ts from 'typescript';
+import { runInNewContext } from 'node:vm';
 import { Project } from '../out/project.js';
 import { moveModuleMembers } from '../out/moduleMembers.js';
 import { findDeadCode } from '../out/deadCode.js';
 import { analyzeNullability } from '../out/nullability.js';
 import { analyzeTestImpact } from '../out/testImpact.js';
+import { projectSnapshot, sameSnapshot } from '../out/snapshot.js';
 
 function fixture(files: Record<string, string>, action: (project: Project, root: string) => void): void {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'project-tools-'));
@@ -166,4 +169,132 @@ test('symbol impact includes shared setup hooks and test-file initialization', (
 	'initialization.test.ts': 'import { changed } from "./a"; changed(); test("initialized", () => 1);'
 }, (project, root) => {
 	assert.deepEqual(analyzeTestImpact(project, [{ fileName: path.join(root, 'a.ts'), offset: 16 }]).tests.map(test => test.name), ['first', 'second', 'initialized']);
+}));
+
+
+test('review: dead code ignores reads in unreachable modules', () => fixture({
+	'a.ts': 'import "./b";',
+	'b.ts': 'export function unused(){return 1;}',
+	'c.ts': 'import { unused } from "./b"; console.log(unused());'
+}, (project, root) => {
+	assert.deepEqual(findDeadCode(project, [path.join(root, 'a.ts')]).map(item => [item.name, item.kind]), [['c.ts', 'file'], ['unused', 'export']]);
+}));
+
+test('review: dead code follows CommonJS module loads', () => fixture({
+	'a.ts': 'const library = require("./b"); console.log(library.used());',
+	'b.ts': 'export function used(){return 1;}'
+}, (project, root) => {
+	assert.deepEqual(findDeadCode(project, [path.join(root, 'a.ts')]).filter(item => item.kind === 'file'), []);
+}));
+
+test('review: executable static class initializers retain their dependencies', () => fixture({
+	'a.ts': 'function effect(){return 1;} class Unused { static value = effect(); } export {};'
+}, (project, root) => {
+	assert.deepEqual(findDeadCode(project, [path.join(root, 'a.ts')]).map(item => item.name), ['Unused']);
+}));
+
+test('review: nullability does not classify ordinary string literals as nullish types', () => fixture({
+	'a.ts': 'function accept(value: number) {} accept("undefined"); accept("null"); type nullableLabel = string; const value: nullableLabel = 1; function read(input: {count: number}) {} const data = {nullable: 1}; read(data); export {};'
+}, project => {
+	assert.deepEqual(analyzeNullability(project), []);
+}));
+
+test('review: symbol impact retains dynamically named tests alongside static cases', () => fixture({
+	'a.ts': 'export function changed(){return 1;}',
+	'value.test.ts': 'import { changed } from "./a"; const title = "dynamic" + Date.now(); test("known", () => changed()); test(title, () => changed());'
+}, (project, root) => {
+	assert.deepEqual(analyzeTestImpact(project, [{ fileName: path.join(root, 'a.ts'), offset: 16 }]).tests.map(test => test.name).sort(), ['known', 'value.test.ts']);
+}));
+
+test('review: impact does not treat unrelated object methods as test registrations', () => fixture({
+	'a.ts': 'export function changed(){return 1;}',
+	'value.test.ts': 'import { changed } from "./a"; const object = { test(title: string, value: number) {} }; object.test("ordinary method", changed()); test("real", () => 1);'
+}, (project, root) => {
+	assert.deepEqual(analyzeTestImpact(project, [{ fileName: path.join(root, 'a.ts'), offset: 16 }]).tests.map(test => test.name), ['real']);
+}));
+
+test('review: equivalent directive quotes allow module moves', () => fixture({
+	'a.ts': "'use client'; export function moved(){return 1;}",
+	'b.ts': '"use client"; export const other = 2;'
+}, (project, root) => {
+	assert.ok(moveModuleMembers(project, path.join(root, 'a.ts'), 30, 30, path.join(root, 'b.ts')).length);
+}));
+
+test('review: moving the first export preserves retained source callers', () => fixture({
+	'a.ts': 'export function moved(){return 1;} export const retained = moved();',
+	'b.ts': 'export const other = 2;'
+}, (project, root) => {
+	assert.ok(moveModuleMembers(project, path.join(root, 'a.ts'), 20, 20, path.join(root, 'b.ts')).length);
+}));
+
+
+test('review: nullable assignments and arguments still report actual nullish types', () => fixture({
+	'a.ts': 'function accept(value: string) {} const value: string = undefined; accept(null); function read(value: {text: string}) {} const object: {text: string | undefined} = {text: undefined}; read(object); export {};'
+}, project => {
+	assert.deepEqual(analyzeNullability(project).map(item => item.code), [2322, 2345, 2345]);
+}));
+
+test('review: module scope retains dynamic cases and does not count each builders twice', () => fixture({
+	'a.ts': 'export const value = 1;',
+	'value.test.ts': 'import { value } from "./a"; test.each([1,2])("known %s", () => value); const title = "dynamic" + Date.now(); test(title, () => value);'
+}, (project, root) => {
+	assert.deepEqual(analyzeTestImpact(project, [{ fileName: path.join(root, 'a.ts') }]).tests.map(test => [test.name, test.kind]), [['value.test.ts', 'file'], ['known %s', undefined]]);
+}));
+
+test('review: namespace test APIs and Node test contexts retain their cases', () => fixture({
+	'a.ts': 'export function changed(){return 1;}',
+	'value.test.ts': 'import * as tests from "node:test"; import { changed } from "./a"; tests.test("outer", async t => { await t.test("child", () => changed()); });'
+}, (project, root) => {
+	assert.deepEqual(analyzeTestImpact(project, [{ fileName: path.join(root, 'a.ts'), offset: 16 }]).tests.map(test => test.name), ['child']);
+}));
+
+test('review: missing dead-code entry files are rejected instead of making every file unreachable', () => fixture({ 'a.ts': 'export const value = 1;' }, (project, root) => {
+	assert.throws(() => findDeadCode(project, [path.join(root, 'missing.ts')]), /deadCodeEntry/);
+}));
+
+test('review: module moves preserve runtime values across local dependencies and aliases', () => fixture({
+	'a.ts': 'const prefix = "Hi "; export function greet(name: string){return prefix + name;} export const retained = greet("Ada");',
+	'b.ts': 'export const version = 2;',
+	'c.ts': 'import { greet as hello, retained } from "./a"; export const result = [hello("Bob"), retained];'
+}, (project, root) => {
+	const edits = moveModuleMembers(project, path.join(root, 'a.ts'), 45, 45, path.join(root, 'b.ts'));
+	const evaluate = (changed: boolean): string => {
+		const cache = new Map<string, { exports: Record<string, object | string | number> }>();
+		const load = (fileName: string): Record<string, object | string | number> => {
+			const absolute = path.resolve(fileName);
+			const existing = cache.get(absolute); if (existing) { return existing.exports; }
+			let text = fs.readFileSync(absolute, 'utf8');
+			if (changed) { for (const edit of edits.filter(edit => path.resolve(edit.fileName) === absolute).sort((a,b) => b.start-a.start)) { text = text.slice(0,edit.start)+edit.text+text.slice(edit.start+edit.length); } }
+			const module = { exports: {} }; cache.set(absolute, module);
+			const code = ts.transpileModule(text, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+			runInNewContext(code, { module, exports: module.exports, require: (specifier: string) => load(path.resolve(path.dirname(absolute), specifier + '.ts')) });
+			return module.exports;
+		};
+		return JSON.stringify(load(path.join(root, 'c.ts')).result);
+	};
+	assert.deepEqual([evaluate(false), evaluate(true)], ['["Hi Bob","Hi Ada"]', '["Hi Bob","Hi Ada"]']);
+}));
+
+
+test('review: nearer jsconfig takes priority and enables JavaScript defaults', () => fixture({ 'a.ts': 'export {};' }, (_project, root) => {
+	const nested = path.join(root, 'nested'); fs.mkdirSync(nested);
+	fs.writeFileSync(path.join(nested, 'jsconfig.json'), '{}');
+	const file = path.join(nested, 'example.js'); fs.writeFileSync(file, 'export const value = 1;');
+	const project = new Project(file, new Map());
+	try { assert.deepEqual([path.resolve(project.directory), project.program.getCompilerOptions().allowJs], [nested, true]); } finally { project.dispose(); }
+}));
+
+test('review: loose files do not inherit the extension hosts unrelated compiler project', () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'loose-project-'));
+	const file = path.join(root, 'example.ts'); fs.writeFileSync(file, 'export const value = 1;');
+	const project = new Project(file, new Map());
+	try { assert.deepEqual([project.directory, project.program.getRootFileNames()], [root, [file]]); } finally { project.dispose(); assert.equal(path.dirname(root), os.tmpdir()); fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('review: snapshot validation catches changes to project declaration files', () => fixture({
+	'a.ts': 'import type { Value } from "./types"; export const value: Value = {text: "ok"};',
+	'types.d.ts': 'export interface Value { text: string }'
+}, (project, root) => {
+	const next = new Project(path.join(root, 'a.ts'), new Map([[path.join(root, 'types.d.ts'), 'export interface Value { text: number }']]));
+	try { assert.equal(sameSnapshot(next, projectSnapshot(project)), false); } finally { next.dispose(); }
 }));
