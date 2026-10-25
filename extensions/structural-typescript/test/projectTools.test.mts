@@ -11,6 +11,7 @@ import { Project } from '../out/project.js';
 import { moveModuleMembers } from '../out/moduleMembers.js';
 import { findDeadCode } from '../out/deadCode.js';
 import { analyzeNullability } from '../out/nullability.js';
+import { analyzeTestImpact } from '../out/testImpact.js';
 
 function fixture(files: Record<string, string>, action: (project: Project, root: string) => void): void {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'project-tools-'));
@@ -92,4 +93,77 @@ test('nullability checks JavaScript with JSDoc in an analysis-only project', () 
 	fs.writeFileSync(file, '/** @param {string | undefined} input */ export function inspect(input) { return input.length; }');
 	const project = new Project(file, new Map(), { allowJs: true, checkJs: true, strictNullChecks: true });
 	try { assert.deepEqual(analyzeNullability(project).map(item => item.code), [18048]); } finally { project.dispose(); }
+}));
+
+
+test('test impact follows aliased barrel references and helpers to individual tests', () => fixture({
+	'a.ts': 'export function changed(){return 1;} export function unrelated(){return 2;}',
+	'barrel.ts': 'export { changed as renamed, unrelated } from "./a";',
+	'consumer.test.ts': 'import { renamed as value, unrelated } from "./barrel"; function helper(){return value();} test("affected", () => helper()); test("unrelated", () => unrelated());'
+}, (project, root) => {
+	const result = analyzeTestImpact(project, [{ fileName: path.join(root, 'a.ts'), offset: 16 }]);
+	assert.deepEqual(result.tests.map(test => [test.name, test.chain.map(step => step.name)]), [['affected', ['changed', 'helper', 'affected']]]);
+}));
+
+test('module impact follows transitive dependencies and cycles, deduplicating test cases', () => fixture({
+	'a.ts': 'export const value = 1; import "./b";',
+	'b.ts': 'export { value } from "./a";',
+	'value.spec.ts': 'import { value } from "./b"; describe("values", () => { it("is available", () => value); it.only("is numeric", () => value + 1); });',
+	'unrelated.test.ts': 'test("unrelated", () => 42);'
+}, (project, root) => {
+	const result = analyzeTestImpact(project, [{ fileName: path.join(root, 'a.ts') }, { fileName: path.join(root, 'b.ts') }]);
+	assert.deepEqual(result.tests.map(test => test.name), ['values › is available', 'values › is numeric']);
+}));
+
+test('test impact handles framework import aliases, namespace uses and parameterized tests', () => fixture({
+	'a.ts': 'export function changed(){return 1;}',
+	'checks.ts': 'import { test as check } from "node:test"; import * as values from "./a"; check("alias", () => values.changed());',
+	'cases.test.ts': 'import { changed } from "./a"; test.each([1,2])("case %s", () => changed());'
+}, (project, root) => {
+	assert.deepEqual(analyzeTestImpact(project, [{ fileName: path.join(root, 'a.ts'), offset: 16 }]).tests.map(test => test.name), ['case %s', 'alias']);
+}));
+
+test('module impact includes side-effect imports, changed test files and files without static cases', () => fixture({
+	'a.ts': 'export const value = 1;',
+	'value.test.ts': 'import "./a"; runCustomTests();',
+	'direct.test.ts': 'test("changed test", () => 1);'
+}, (project, root) => {
+	assert.deepEqual(analyzeTestImpact(project, [{ fileName: path.join(root, 'a.ts') }, { fileName: path.join(root, 'direct.test.ts') }, { fileName: path.join(root, 'deleted.ts') }]).tests.map(test => test.name), ['changed test', 'value.test.ts']);
+	assert.deepEqual(analyzeTestImpact(project, [{ fileName: path.join(root, 'deleted.ts') }]).excludedFiles, [path.join(root, 'deleted.ts')]);
+}));
+
+test('test impact uses unsaved buffers and excludes production functions named test', () => fixture({
+	'a.ts': 'export function changed(){return 1;}',
+	'value.test.ts': 'test("not linked on disk", () => 1);',
+	'production.ts': 'import { changed } from "./a"; function test(name: string, body: () => number) {} test("production", () => changed());'
+}, (_project, root) => {
+	const project = new Project(path.join(root, 'a.ts'), new Map([[path.join(root, 'value.test.ts'), 'import { changed } from "./a"; test("unsaved", () => changed());']]));
+	try { assert.deepEqual(analyzeTestImpact(project, [{ fileName: path.join(root, 'a.ts'), offset: 16 }]).tests.map(test => test.name), ['unsaved']); } finally { project.dispose(); }
+}));
+
+
+test('module impact follows literal dynamic imports and CommonJS require', () => fixture({
+	'a.ts': 'export const value = 1;',
+	'loader.ts': 'export async function load(){ return import("./a"); }',
+	'dynamic.test.ts': 'import { load } from "./loader"; test("dynamic loader", async () => load());',
+	'require.test.ts': 'const values = require("./a"); test("CommonJS", () => values.value);'
+}, (project, root) => {
+	assert.deepEqual(analyzeTestImpact(project, [{ fileName: path.join(root, 'a.ts') }]).tests.map(test => test.name), ['dynamic loader', 'CommonJS']);
+}));
+
+
+test('symbol impact retains executed initializers even when their results are unused', () => fixture({
+	'a.ts': 'export function changed(){return 1;}',
+	'value.test.ts': 'import { changed } from "./a"; function helper(){ const ignored = changed(); } test("helper effect", () => helper()); test("direct effect", () => { const ignored = changed(); }); test("dormant callback", () => { const unused = () => changed(); });'
+}, (project, root) => {
+	assert.deepEqual(analyzeTestImpact(project, [{ fileName: path.join(root, 'a.ts'), offset: 16 }]).tests.map(test => test.name), ['helper effect', 'direct effect']);
+}));
+
+
+test('symbol impact includes shared setup hooks and test-file initialization', () => fixture({
+	'a.ts': 'export function changed(){return 1;}',
+	'hooks.test.ts': 'import { changed } from "./a"; beforeEach(() => { const ignored = changed(); }); test("first", () => 1); test("second", () => 2);',
+	'initialization.test.ts': 'import { changed } from "./a"; changed(); test("initialized", () => 1);'
+}, (project, root) => {
+	assert.deepEqual(analyzeTestImpact(project, [{ fileName: path.join(root, 'a.ts'), offset: 16 }]).tests.map(test => test.name), ['first', 'second', 'initialized']);
 }));

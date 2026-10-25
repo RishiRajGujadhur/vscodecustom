@@ -22,5 +22,6 @@
 	"changeSignature": "Change Signature and Update Callers",
 	"moveModuleMembers": "Move Module Members",
 	"findDeadCode": "Find Dead Code",
-	"advancedNullability": "Advanced Nullability Analysis"
+	"advancedNullability": "Advanced Nullability Analysis",
+	"testImpact": "Test Impact Analysis"
 }

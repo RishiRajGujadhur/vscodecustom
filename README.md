@@ -102,3 +102,23 @@ The analysis uses TypeScript control-flow narrowing through branches, assignment
 Traces show potential origins, with up to five recursive hops and twenty locations per warning. Earlier assignments and function returns are candidates; the trace does not prove that each reaches the failing use. `any`, explicit non-null assertions, inaccurate declarations, external code and runtime mutation can hide hazards. Call-site-specific parameter tracing and exhaustive symbolic execution are outside this analysis.
 
 ![Nullability warning with navigable return values and branch condition](docs/structural-tools/screenshots/advanced-nullability.png)
+
+## Test Impact Analysis
+
+Run **TypeScript Structure: Test Impact Analysis** from the Command Palette or editor context menu, then choose a scope:
+
+| Scope | What it analyzes |
+| --- | --- |
+| Function or Symbol at Cursor | Follows resolved references through callers, helpers, aliases and re-exports to individual test registrations. Place the cursor on a declaration name or a referenced symbol. |
+| Active Module | Follows reverse imports transitively and lists tests in dependent test modules, including side-effect imports, literal dynamic imports and CommonJS `require`. This broader scope includes all recognized cases in an affected file. |
+| Git-Changed Modules | Uses the built-in Git extension’s staged, working-tree, untracked and merge changes, plus unsaved buffers in the active repository. Analyzes those modules against the active compiler project. Changes already committed to a branch are outside this scope. |
+
+The searchable picker shows each potentially affected test, its file and an illustrative dependency chain. Select a result to open the test registration. Results are deduplicated, cycles terminate, and navigation checks the project snapshot to reject stale results. No tests run automatically.
+
+Try [impactSource.ts](docs/structural-tools/demo/impactSource.ts): place the cursor on `formatImpactLabel` and choose **Function or Symbol at Cursor**. The two label tests in `impactSource.test.ts` appear, including the path through `displayImpactLabel`; the unrelated totals test is excluded. **Active Module** includes all three tests.
+
+Test discovery recognizes `.test.*`, `.spec.*`, `test/`, `tests/`, and `__tests__/` paths, and files importing Node’s test API, Vitest, Jest globals, Playwright Test or Mocha. Literal `test`/`it` titles, imported aliases, suite titles, common modifiers and `.each(...)` registrations are supported. Module analysis falls back to a test file entry when no static cases are found. Parameterized registrations are listed once. Shared hooks and test-file initialization conservatively include every recognized case in that file.
+
+Keep source and tests in the same compiler project; excluded test projects are not scanned. If the application config excludes tests, open a test file under a config that includes them and select the imported symbol there. Git mode reports changed files outside that project or deleted from it as unanalyzed. Computed module paths, reflection, custom registration wrappers, mocks, runtime global effects and anonymous declarations can require broader module analysis or additional tests. The report is a static candidate list and does not establish runtime coverage.
+
+![Affected test cases with direct and transitive symbol reference chains](docs/structural-tools/screenshots/test-impact-analysis.png)

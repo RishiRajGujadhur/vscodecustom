@@ -9,9 +9,11 @@ import { Change } from './refactor';
 import { moveModuleMembers } from './moduleMembers';
 import { findDeadCode } from './deadCode';
 import { analyzeNullability } from './nullability';
+import { registerTestImpact } from './testImpactView';
 
 /** Registers project tools alongside the existing structural refactoring commands. */
 export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(document: vscode.TextDocument, action: (project: Project) => T) => T, command: (id: string, action: (editor: vscode.TextEditor) => Promise<void>) => void, preview: (changes: readonly Change[]) => Promise<void>): void {
+	registerTestImpact(command, run);
 	const diagnostics = vscode.languages.createDiagnosticCollection('structural-project-tools');
 	const nullDiagnostics = vscode.languages.createDiagnosticCollection('structural-nullability');
 	context.subscriptions.push(diagnostics, nullDiagnostics);

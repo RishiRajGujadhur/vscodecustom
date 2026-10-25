@@ -139,6 +139,11 @@
 				"command": "structural.advancedNullability",
 				"title": "%advancedNullability%",
 				"category": "%category%"
+			},
+			{
+				"command": "structural.testImpact",
+				"title": "%testImpact%",
+				"category": "%category%"
 			}
 		],
 		"submenus": [
@@ -205,6 +210,9 @@
 				},
 				{
 					"command": "structural.advancedNullability"
+				},
+				{
+					"command": "structural.testImpact"
 				}
 			],
 			"editor/context": [
