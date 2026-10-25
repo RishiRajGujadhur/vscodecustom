@@ -14,6 +14,7 @@ import { projectSnapshot, sameSnapshot, snapshotText } from './snapshot';
 import { documentOffset } from './documentEdits';
 import { canonicalFileName } from './projectGraph';
 
+const nullabilityOptions = { strictNullChecks: true, strictPropertyInitialization: false, noUncheckedIndexedAccess: true, allowJs: true, checkJs: true };
 
 function analysisRange(document: vscode.TextDocument, snapshot: ReadonlyMap<string, string>, start: number, length: number): vscode.Range | undefined {
 	const original = snapshotText(snapshot, document.uri.fsPath);
@@ -30,7 +31,7 @@ export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(
 	const nullDiagnostics = vscode.languages.createDiagnosticCollection('structural-nullability');
 	context.subscriptions.push(diagnostics, nullDiagnostics);
 	let generation = 0, nullRun = 0, deadRun = 0;
-	let latestReport: string | undefined;
+	let latestReport: { text: string; fileName: string; snapshot: ReadonlyMap<string, string>; nullability: boolean } | undefined;
 	const report = (title: string, byFile: ReadonlyMap<string, readonly vscode.Diagnostic[]>) => {
 		const lines = [title, ''];
 		for (const [file, findings] of byFile) {
@@ -46,7 +47,12 @@ export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(
 	context.subscriptions.push(vscode.commands.registerCommand('structural.copyAnalysisReport', async () => {
 		if (latestReport === undefined) { vscode.window.showInformationMessage(vscode.l10n.t('Run Find Dead Code or Advanced Nullability Analysis First.')); return; }
 		try {
-			await vscode.env.clipboard.writeText(latestReport);
+			const buffers = new Map(vscode.workspace.textDocuments.filter(document => document.uri.scheme === 'file').map(document => [document.uri.fsPath, document.getText()]));
+			const project = new Project(latestReport.fileName, buffers, latestReport.nullability ? nullabilityOptions : {});
+			let current: boolean;
+			try { current = sameSnapshot(project, latestReport.snapshot); } finally { project.dispose(); }
+			if (!current) { clear(); vscode.window.showInformationMessage(vscode.l10n.t('The Project Changed. Run Find Dead Code or Advanced Nullability Analysis Again.')); return; }
+			await vscode.env.clipboard.writeText(latestReport.text);
 			vscode.window.showInformationMessage(vscode.l10n.t('Copied Analysis Report.'));
 		} catch (error) { vscode.window.showErrorMessage(vscode.l10n.t('Could Not Copy Results: {0}', error instanceof Error ? error.message : String(error))); }
 	}));
@@ -56,13 +62,14 @@ export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(
 		const request = ++nullRun;
 		const analyzedGeneration = generation;
 		const buffers = new Map(vscode.workspace.textDocuments.filter(document => document.uri.scheme === 'file').map(document => [document.uri.fsPath, document.getText()]));
-		const project = new Project(editor.document.uri.fsPath, buffers, { strictNullChecks: true, strictPropertyInitialization: false, noUncheckedIndexedAccess: true, allowJs: true, checkJs: true });
+		const project = new Project(editor.document.uri.fsPath, buffers, nullabilityOptions);
 		let findings: ReturnType<typeof analyzeNullability>;
 		let snapshot: ReadonlyMap<string, string>;
 		try { findings = analyzeNullability(project); snapshot = projectSnapshot(project); } finally { project.dispose(); }
 		const byFile = new Map<string, vscode.Diagnostic[]>();
 		for (const finding of findings) {
 			const document = await vscode.workspace.openTextDocument(vscode.Uri.file(finding.fileName));
+			if (generation !== analyzedGeneration || request !== nullRun) { return; }
 			const range = analysisRange(document, snapshot, finding.start, finding.length);
 			if (!range) { clear(); return; }
 			const diagnostic = new vscode.Diagnostic(range, finding.message, vscode.DiagnosticSeverity.Warning);
@@ -71,6 +78,7 @@ export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(
 			diagnostic.relatedInformation = [];
 			for (const location of finding.trace) {
 				const source = await vscode.workspace.openTextDocument(vscode.Uri.file(location.fileName));
+				if (generation !== analyzedGeneration || request !== nullRun) { return; }
 				const range = analysisRange(source, snapshot, location.start, location.length);
 				if (!range) { clear(); return; }
 				const labels = { source: vscode.l10n.t('Possible Value Source: {0}', location.text), branch: vscode.l10n.t('Path Condition: {0}', location.text), return: vscode.l10n.t('Possible Return Value: {0}', location.text) };
@@ -80,7 +88,7 @@ export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(
 		}
 		if (generation !== analyzedGeneration || request !== nullRun) { return; }
 		nullDiagnostics.clear();
-		latestReport = report(vscode.l10n.t('Advanced Nullability Analysis'), byFile);
+		latestReport = { text: report(vscode.l10n.t('Advanced Nullability Analysis'), byFile), fileName: editor.document.uri.fsPath, snapshot, nullability: true };
 		for (const [file, list] of byFile) { nullDiagnostics.set(vscode.Uri.file(file), list); }
 		if (!findings.length) { vscode.window.showInformationMessage(vscode.l10n.t('No Nullability Hazards Found in This Compiler Project.')); }
 		await vscode.commands.executeCommand('workbench.actions.view.problems');
@@ -103,6 +111,7 @@ export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(
 		const byFile = new Map<string, vscode.Diagnostic[]>();
 		for (const finding of findings) {
 			const source = await vscode.workspace.openTextDocument(vscode.Uri.file(finding.fileName));
+			if (generation !== analyzedGeneration || request !== deadRun) { return; }
 			const labels = {
 				file: vscode.l10n.t('File Is Unreachable from Selected Entry Files: {0}. Check Dynamic Loading and Framework Conventions.', finding.name),
 				export: vscode.l10n.t('Possibly Unused Export: {0}. No Reachable Static Uses Were Found.', finding.name),
@@ -118,23 +127,26 @@ export function registerProjectTools(context: vscode.ExtensionContext, run: <T>(
 		}
 		if (generation !== analyzedGeneration || request !== deadRun) { return; }
 		diagnostics.clear();
-		latestReport = report(vscode.l10n.t('Find Dead Code'), byFile);
+		latestReport = { text: report(vscode.l10n.t('Find Dead Code'), byFile), fileName: document.uri.fsPath, snapshot, nullability: false };
 		for (const [file, list] of byFile) { diagnostics.set(vscode.Uri.file(file), list); }
 		if (!findings.length) { vscode.window.showInformationMessage(vscode.l10n.t('No Dead Code Candidates Found for the Selected Entry Files.')); }
 		await vscode.commands.executeCommand('workbench.actions.view.problems');
 	});
 	command('structural.moveModuleMembers', async editor => {
 		const document = editor.document;
+		const version = document.version;
+		const start = document.offsetAt(editor.selection.start), end = document.offsetAt(editor.selection.end);
 		const targets = run(document, project => project.program.getSourceFiles().filter(file => path.resolve(file.fileName) !== document.uri.fsPath && !file.isDeclarationFile && !project.program.isSourceFileFromExternalLibrary(file)).map(file => ({ label: vscode.workspace.asRelativePath(file.fileName), fileName: file.fileName })));
 		const previous = context.workspaceState.get<string>('structural.moveModuleMembers.destination.' + canonicalFileName(path.dirname(document.uri.fsPath)));
 		const ranked = targets.map(target => ({ ...target, description: canonicalFileName(target.fileName) === previous ? vscode.l10n.t('Last Destination') : undefined })).sort((a, b) => Number(!!b.description) - Number(!!a.description) || a.label.localeCompare(b.label));
 		const target = await vscode.window.showQuickPick(ranked, { title: vscode.l10n.t('Move Module Members'), placeHolder: vscode.l10n.t('Move Exports to an Existing Project File'), matchOnDescription: true });
 		if (!target) { return; }
+		if (document.version !== version) { throw new Error(vscode.l10n.t('The Source Changed. Run Move Module Members Again.')); }
 		let changes: readonly Change[];
 		let snapshot: ReadonlyMap<string, string>;
 		try {
 			({ changes, snapshot } = run(document, project => ({
-				changes: moveModuleMembers(project, document.uri.fsPath, document.offsetAt(editor.selection.start), document.offsetAt(editor.selection.end), target.fileName),
+				changes: moveModuleMembers(project, document.uri.fsPath, start, end, target.fileName),
 				snapshot: projectSnapshot(project)
 			})));
 		}

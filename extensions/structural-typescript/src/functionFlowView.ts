@@ -58,11 +58,13 @@ export function registerFunctionFlow(context: vscode.ExtensionContext, withProje
 		subscriptions.push(panel.onDidDispose(() => { panels.delete(panel); subscriptions.forEach(subscription => subscription.dispose()); }));
 	});
 	register('structural.valueOrigins', async editor => {
+		const version = editor.document.version;
 		const { flow, key, offset } = analyze(editor);
 		const use = flow.nodes.filter(node => node.start <= offset && offset < node.end && key && node.uses.includes(key)).sort((a, b) => a.end - a.start - (b.end - b.start))[0];
 		if (!key || !use) { throw new Error(vscode.l10n.t('Select a Local Variable Use to Inspect Its Reaching Assignments.')); }
 		const origins = [...flow.facts[use.id].reaching.get(key) ?? []];
 		const picked = await vscode.window.showQuickPick(origins.map(id => ({ label: id === -1 ? vscode.l10n.t('Possibly Unassigned') : id === 0 ? vscode.l10n.t('Function Parameter') : flow.nodes[id].label, id })), { placeHolder: vscode.l10n.t('Assignments That May Reach This Use') });
+		if (picked && editor.document.version !== version) { throw new Error(vscode.l10n.t('The Source Changed. Run Go to Reaching Value Origins Again.')); }
 		if (picked && picked.id > 0) { editor.selection = new vscode.Selection(editor.document.positionAt(flow.nodes[picked.id].start), editor.document.positionAt(flow.nodes[picked.id].end)); editor.revealRange(editor.selection); }
 	});
 }

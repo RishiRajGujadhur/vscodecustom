@@ -17,7 +17,7 @@ interface ImpactRepository {
 interface ImpactGitExtension { getAPI(version: 1): { getRepository(uri: vscode.Uri): ImpactRepository | null } }
 
 
-async function pickImpactedTest(tests: readonly ImpactedTest[]): Promise<ImpactedTest | undefined> {
+async function pickImpactedTest(tests: readonly ImpactedTest[], validate: () => void): Promise<ImpactedTest | undefined> {
 	const picker = vscode.window.createQuickPick<vscode.QuickPickItem & { test: ImpactedTest }>();
 	const subscriptions: vscode.Disposable[] = [picker];
 	const copyPaths: vscode.QuickInputButton = { iconPath: new vscode.ThemeIcon('files'), tooltip: vscode.l10n.t('Copy Matching Test File Paths') };
@@ -43,6 +43,7 @@ async function pickImpactedTest(tests: readonly ImpactedTest[]): Promise<Impacte
 				try {
 					if (button === clearSearch) { picker.value = ''; return; }
 					if (!matches.length) { picker.title = vscode.l10n.t('No Matching Results to Copy. Clear or Change Your Search.'); return; }
+					validate();
 					const paths = impactFilePaths(matches, displayPath);
 					const text = button === copyPaths ? paths.join('\n') : matches.map(test => [test.name, vscode.workspace.asRelativePath(test.fileName), test.chain.map(step => step.name).join(' → ')].join('\n')).join('\n\n');
 					await vscode.env.clipboard.writeText(text);
@@ -87,7 +88,9 @@ export function registerTestImpact(context: vscode.ExtensionContext, command: (i
 		await context.workspaceState.update('structural.testImpact.scope', scope.scope);
 		if (result.excludedFiles.length) { vscode.window.showWarningMessage(vscode.l10n.t('{0} Changed Files Are Outside the Active Compiler Project or No Longer Exist. Their Impact Was Not Analyzed.', result.excludedFiles.length)); }
 		if (!result.tests.length) { vscode.window.showInformationMessage(vscode.l10n.t('No Statically Linked Tests Found in This Compiler Project. Dynamic and External Tests May Still Be Affected.')); return; }
-		const test = await pickImpactedTest(result.tests);
+		const test = await pickImpactedTest(result.tests, () => {
+			if (!run(document, project => sameSnapshot(project, snapshot))) { throw new Error(vscode.l10n.t('The Project Changed. Run Test Impact Analysis Again.')); }
+		});
 		if (!test) { return; }
 		if (!run(document, project => sameSnapshot(project, snapshot))) { throw new Error(vscode.l10n.t('The Project Changed. Run Test Impact Analysis Again.')); }
 		const source = await vscode.workspace.openTextDocument(vscode.Uri.file(test.fileName));

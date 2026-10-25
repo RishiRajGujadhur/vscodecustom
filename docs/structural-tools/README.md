@@ -145,3 +145,5 @@ The Windows x64 user installer is unsigned. The installer path fix removes an un
 ### Further workflow checks
 
 Follow steps 3, 4 and 7 in [Verify the improvements](QUALITY_OF_LIFE.md#verify-the-improvements) to test multiword impact search and filtered exports, signature draft recovery and redo, and analysis report copying/invalidation. These checks use the existing demo files and require no source edits to be applied.
+
+For the follow-up correctness audit, use the [stale-result regression checks](QUALITY_OF_LIFE.md#stale-result-regression-checks). They cover stale clipboard exports and cached reports, original move selections, superseded analyses and reaching-value navigation after source edits.
