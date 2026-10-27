@@ -45,6 +45,8 @@ The source checkout uses `out/extension.js`; the repository packaging pipeline b
 
 ## Windows installer
 
+The [27 October 2026 release](../../docs/structural-tools/RELEASE_NOTES_2026-10-27.md) bundles 0.2.0 and the latest committed workflow fixes into the existing Code OSS 1.144.0 application base. The local unsigned x64 user installer, notes, checksums and build information are in `.build/releases/2026-10-27/` at the repository root.
+
 From the repository root, on Windows x64 with the Node version in `.nvmrc`, Visual Studio's **Desktop development with C++** workload, and a Windows SDK installed:
 
 ```powershell

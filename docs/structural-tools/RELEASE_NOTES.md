@@ -1,3 +1,13 @@
+# Windows release — 27 October 2026
+
+The new Windows x64 user installer bundles Structural Tools 0.2.0, including the project analysis commands, smart refactorings, workflow improvements and correctness fixes. Read the [full release notes](RELEASE_NOTES_2026-10-27.md) for features, installation, exact revisions and limits.
+
+Local artifacts are in `.build/releases/2026-10-27/`: the dated `.exe`, `RELEASE_NOTES.md`, `SHA256SUMS.txt`, `BUILD_INFO.json` and clean release test results. This is an unsigned extension refresh of the existing Code OSS 1.144.0 application base, not a rebuild of the application core. The clean committed extension snapshot passed all 144 tests; unfinished local experiments are excluded.
+
+The older preview notes below describe previous packages.
+
+---
+
 # Structural Tools Preview — Code OSS 1.144.0
 
 Windows x64 user installation, with TypeScript Structure Tools 0.1.0 built in.
